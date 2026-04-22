@@ -1,0 +1,3 @@
+# Dummy YAMNet model file for project structure validation.
+# Replace this with the actual yamnet.tflite binary from:
+# https://tfhub.dev/google/lite-model/yamnet/classification/tflite/1
