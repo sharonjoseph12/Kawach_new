@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:injectable/injectable.dart';
 
 class SafeDestination {
@@ -45,7 +46,8 @@ class EscapeGuidanceService {
       final elements = response.data['elements'] as List;
       final destinations = elements.map((e) {
         final destLoc = LatLng(e['lat'], e['lon']);
-        final distance = const Distance().as(LengthUnit.Meter, current, destLoc);
+        final distance = Geolocator.distanceBetween(
+          current.latitude, current.longitude, destLoc.latitude, destLoc.longitude);
         
         final type = e['tags']['amenity'] ?? e['tags']['shop'] ?? e['tags']['railway'] ?? 'Safe Zone';
         final name = e['tags']['name'] ?? '${type.toUpperCase()} Near You';

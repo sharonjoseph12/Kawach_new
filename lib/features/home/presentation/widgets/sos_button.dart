@@ -51,7 +51,7 @@ class _SOSButtonState extends State<SOSButton>
 
   Future<void> _triggerSOS() async {
     HapticFeedback.heavyImpact();
-    if (await Vibration.hasVibrator() ?? false) {
+    if (await Vibration.hasVibrator()) {
       Vibration.vibrate(
           pattern: [0, 300, 100, 300, 100, 600],
           intensities: [0, 255, 0, 200, 0, 255]);
@@ -201,3 +201,4 @@ class _SOSButtonState extends State<SOSButton>
     );
   }
 }
+

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:kawach/core/theme/app_colors.dart';
 
 class FakeCallIncomingPage extends StatefulWidget {
@@ -13,17 +14,20 @@ class FakeCallIncomingPage extends StatefulWidget {
   State<FakeCallIncomingPage> createState() => _FakeCallIncomingPageState();
 }
 
-class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
+class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> with SingleTickerProviderStateMixin {
   bool _isAnswered = false;
   int _callDurationSeconds = 0;
   Timer? _callTimer;
 
   // Simulate ringing timer so that if they don't answer in 30s it "misses"
   Timer? _ringTimer;
+  final FlutterTts _flutterTts = FlutterTts();
+  late AnimationController _pulseCtrl;
 
   @override
   void initState() {
     super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
     _ringTimer = Timer(const Duration(seconds: 40), () {
       if (!_isAnswered && mounted) {
         context.pop();
@@ -34,8 +38,8 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
   }
 
   void _startRingingVibration() async {
-    if (await Vibration.hasVibrator() ?? false) {
-      if (await Vibration.hasCustomVibrationsSupport() ?? false) {
+    if (await Vibration.hasVibrator()) {
+      if (await Vibration.hasCustomVibrationsSupport()) {
         // pattern: wait, vibrate, wait, vibrate...
         Vibration.vibrate(pattern: [0, 1000, 1000, 1000, 1000, 1000, 1000, 1000], intensities: [0, 255, 0, 255, 0, 255, 0, 255]);
       } else {
@@ -44,9 +48,10 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
     }
   }
 
-  void _answerCall() {
+  void _answerCall() async {
     Vibration.cancel();
     _ringTimer?.cancel();
+    _pulseCtrl.stop();
     setState(() => _isAnswered = true);
     
     // Start duration timer
@@ -54,20 +59,28 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
       setState(() => _callDurationSeconds++);
     });
     
-    // In a real app with audio packages, we would play a pre-recorded mp3 
-    // of a conversational voice locally here. For this iteration, UI serves the purpose.
+    // Play Deterrent Audio
+    await _flutterTts.setLanguage("en-IN");
+    await _flutterTts.setPitch(0.9);
+    await _flutterTts.setSpeechRate(0.5);
+    
+    await Future.delayed(const Duration(seconds: 1));
+    await _flutterTts.speak("Hello, this is the Bangalore Police Control Room. We have detected an anomaly and route deviation from your device. Are you safe? Officers are currently en route to your live GPS location. Please stay on the line.");
   }
 
   void _declineCall() {
     Vibration.cancel();
+    _flutterTts.stop();
     context.pop();
   }
 
   @override
   void dispose() {
     Vibration.cancel();
+    _flutterTts.stop();
     _callTimer?.cancel();
     _ringTimer?.cancel();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -89,6 +102,44 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
             // Caller Info
             Column(
               children: [
+                if (!_isAnswered) ...[
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulseCtrl,
+                        builder: (ctx, child) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: List.generate(3, (i) {
+                              final delay = i * 0.33;
+                              var val = (_pulseCtrl.value - delay) % 1.0;
+                              if (val < 0) val += 1.0;
+                              return Container(
+                                width: 100 + (val * 150),
+                                height: 100 + (val * 150),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.5 * (1 - val)),
+                                    width: 2,
+                                  ),
+                                  color: Colors.white.withValues(alpha: 0.1 * (1 - val)),
+                                ),
+                              );
+                            }),
+                          );
+                        },
+                      ),
+                      Container(
+                        width: 100, height: 100,
+                        decoration: BoxDecoration(color: Colors.grey.shade800, shape: BoxShape.circle),
+                        child: const Icon(Icons.person, size: 60, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                ],
                 Text(
                   _isAnswered ? _formatDuration(_callDurationSeconds) : 'mobile',
                   style: const TextStyle(color: Colors.white70, fontSize: 18),
@@ -226,3 +277,4 @@ class _CallActionBtn extends StatelessWidget {
     );
   }
 }
+

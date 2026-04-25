@@ -3,16 +3,22 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i5;
+import 'dart:async' as _i6;
 
 import 'package:isar/isar.dart' as _i3;
-import 'package:kawach/core/database/local_database.dart' as _i6;
-import 'package:kawach/core/database/models/evidence_local.dart' as _i8;
-import 'package:kawach/core/database/models/sos_alert_local.dart' as _i7;
-import 'package:kawach/features/sos/data/sos_queue_manager.dart' as _i9;
-import 'package:kawach/features/sos/data/sos_remote_datasource.dart' as _i4;
+import 'package:kawach/core/database/local_database.dart' as _i7;
+import 'package:kawach/core/database/models/evidence_local.dart' as _i9;
+import 'package:kawach/core/database/models/sos_alert_local.dart' as _i8;
+import 'package:kawach/features/fallback/sms_fallback_service.dart' as _i11;
+import 'package:kawach/features/guardians/data/guardian_repository.dart' as _i4;
+import 'package:kawach/features/mesh/mesh_message.dart' as _i15;
+import 'package:kawach/features/mesh/nearby_mesh_service.dart' as _i12;
+import 'package:kawach/features/sos/data/sos_queue_manager.dart' as _i10;
+import 'package:kawach/features/sos/data/sos_remote_datasource.dart' as _i5;
 import 'package:kawach/features/sos/domain/entities/sos_alert.dart' as _i2;
 import 'package:mockito/mockito.dart' as _i1;
+import 'package:mockito/src/dummies.dart' as _i14;
+import 'package:nearby_connections/nearby_connections.dart' as _i13;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -47,17 +53,27 @@ class _FakeIsar_1 extends _i1.SmartFake implements _i3.Isar {
         );
 }
 
+class _FakeGuardianModel_2 extends _i1.SmartFake implements _i4.GuardianModel {
+  _FakeGuardianModel_2(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
 /// A class which mocks [SosRemoteDataSource].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockSosRemoteDataSource extends _i1.Mock
-    implements _i4.SosRemoteDataSource {
+    implements _i5.SosRemoteDataSource {
   MockSosRemoteDataSource() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i5.Future<_i2.SosAlert> triggerSOS({
+  _i6.Future<_i2.SosAlert> triggerSOS({
     required double? lat,
     required double? lng,
     required int? battery,
@@ -74,7 +90,7 @@ class MockSosRemoteDataSource extends _i1.Mock
             #triggerType: triggerType,
           },
         ),
-        returnValue: _i5.Future<_i2.SosAlert>.value(_FakeSosAlert_0(
+        returnValue: _i6.Future<_i2.SosAlert>.value(_FakeSosAlert_0(
           this,
           Invocation.method(
             #triggerSOS,
@@ -87,10 +103,10 @@ class MockSosRemoteDataSource extends _i1.Mock
             },
           ),
         )),
-      ) as _i5.Future<_i2.SosAlert>);
+      ) as _i6.Future<_i2.SosAlert>);
 
   @override
-  _i5.Future<void> cancelSOS(
+  _i6.Future<void> cancelSOS(
     String? sosId,
     String? reason,
   ) =>
@@ -102,25 +118,25 @@ class MockSosRemoteDataSource extends _i1.Mock
             reason,
           ],
         ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i5.Stream<_i2.SosAlert?> listenToActiveSOS(String? userId) =>
+  _i6.Stream<_i2.SosAlert?> listenToActiveSOS(String? userId) =>
       (super.noSuchMethod(
         Invocation.method(
           #listenToActiveSOS,
           [userId],
         ),
-        returnValue: _i5.Stream<_i2.SosAlert?>.empty(),
-      ) as _i5.Stream<_i2.SosAlert?>);
+        returnValue: _i6.Stream<_i2.SosAlert?>.empty(),
+      ) as _i6.Stream<_i2.SosAlert?>);
 }
 
 /// A class which mocks [LocalDatabase].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockLocalDatabase extends _i1.Mock implements _i6.LocalDatabase {
+class MockLocalDatabase extends _i1.Mock implements _i7.LocalDatabase {
   MockLocalDatabase() {
     _i1.throwOnMissingStub(this);
   }
@@ -144,70 +160,79 @@ class MockLocalDatabase extends _i1.Mock implements _i6.LocalDatabase {
       );
 
   @override
-  _i5.Future<void> initialize() => (super.noSuchMethod(
+  _i6.Future<void> initialize() => (super.noSuchMethod(
         Invocation.method(
           #initialize,
           [],
         ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i5.Future<void> saveSosAlert(_i7.SosAlertLocal? alert) =>
+  _i6.Future<void> saveSosAlert(_i8.SosAlertLocal? alert) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveSosAlert,
           [alert],
         ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i5.Future<void> saveEvidence(_i8.EvidenceLocal? evidence) =>
+  _i6.Future<void> saveEvidence(_i9.EvidenceLocal? evidence) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveEvidence,
           [evidence],
         ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i5.Future<List<_i7.SosAlertLocal>> getUnsyncedAlerts() =>
+  _i6.Future<List<_i8.SosAlertLocal>> getUnsyncedAlerts() =>
       (super.noSuchMethod(
         Invocation.method(
           #getUnsyncedAlerts,
           [],
         ),
         returnValue:
-            _i5.Future<List<_i7.SosAlertLocal>>.value(<_i7.SosAlertLocal>[]),
-      ) as _i5.Future<List<_i7.SosAlertLocal>>);
+            _i6.Future<List<_i8.SosAlertLocal>>.value(<_i8.SosAlertLocal>[]),
+      ) as _i6.Future<List<_i8.SosAlertLocal>>);
 
   @override
-  _i5.Future<List<_i8.EvidenceLocal>> getUnuploadedEvidence() =>
+  _i6.Future<List<_i9.EvidenceLocal>> getUnuploadedEvidence() =>
       (super.noSuchMethod(
         Invocation.method(
           #getUnuploadedEvidence,
           [],
         ),
         returnValue:
-            _i5.Future<List<_i8.EvidenceLocal>>.value(<_i8.EvidenceLocal>[]),
-      ) as _i5.Future<List<_i8.EvidenceLocal>>);
+            _i6.Future<List<_i9.EvidenceLocal>>.value(<_i9.EvidenceLocal>[]),
+      ) as _i6.Future<List<_i9.EvidenceLocal>>);
 }
 
 /// A class which mocks [SosQueueManager].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockSosQueueManager extends _i1.Mock implements _i9.SosQueueManager {
+class MockSosQueueManager extends _i1.Mock implements _i10.SosQueueManager {
   MockSosQueueManager() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i5.Future<void> enqueue({
+  void dispose() => super.noSuchMethod(
+        Invocation.method(
+          #dispose,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i6.Future<void> enqueue({
     required double? lat,
     required double? lng,
     required int? battery,
@@ -224,26 +249,192 @@ class MockSosQueueManager extends _i1.Mock implements _i9.SosQueueManager {
             #triggerType: triggerType,
           },
         ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i5.Future<void> flushQueue() => (super.noSuchMethod(
+  _i6.Future<void> flushQueue() => (super.noSuchMethod(
         Invocation.method(
           #flushQueue,
           [],
         ),
-        returnValue: _i5.Future<void>.value(),
-        returnValueForMissingStub: _i5.Future<void>.value(),
-      ) as _i5.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i5.Future<int> queueLength() => (super.noSuchMethod(
+  _i6.Future<int> queueLength() => (super.noSuchMethod(
         Invocation.method(
           #queueLength,
           [],
         ),
-        returnValue: _i5.Future<int>.value(0),
-      ) as _i5.Future<int>);
+        returnValue: _i6.Future<int>.value(0),
+      ) as _i6.Future<int>);
+}
+
+/// A class which mocks [SmsFallbackService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockSmsFallbackService extends _i1.Mock
+    implements _i11.SmsFallbackService {
+  MockSmsFallbackService() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i6.Future<void> dispatchOfflineDistress({
+    required double? lat,
+    required double? lng,
+    required List<String>? guardianPhones,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #dispatchOfflineDistress,
+          [],
+          {
+            #lat: lat,
+            #lng: lng,
+            #guardianPhones: guardianPhones,
+          },
+        ),
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
+}
+
+/// A class which mocks [NearbyMeshService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockNearbyMeshService extends _i1.Mock implements _i12.NearbyMeshService {
+  MockNearbyMeshService() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i13.Strategy get strategy => (super.noSuchMethod(
+        Invocation.getter(#strategy),
+        returnValue: _i13.Strategy.P2P_CLUSTER,
+      ) as _i13.Strategy);
+
+  @override
+  String get serviceId => (super.noSuchMethod(
+        Invocation.getter(#serviceId),
+        returnValue: _i14.dummyValue<String>(
+          this,
+          Invocation.getter(#serviceId),
+        ),
+      ) as String);
+
+  @override
+  _i6.Stream<_i15.MeshMessage> get incomingMessages => (super.noSuchMethod(
+        Invocation.getter(#incomingMessages),
+        returnValue: _i6.Stream<_i15.MeshMessage>.empty(),
+      ) as _i6.Stream<_i15.MeshMessage>);
+
+  @override
+  _i6.Future<bool> startAdvertising(_i15.MeshMessage? message) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #startAdvertising,
+          [message],
+        ),
+        returnValue: _i6.Future<bool>.value(false),
+      ) as _i6.Future<bool>);
+
+  @override
+  _i6.Future<void> stopAdvertising() => (super.noSuchMethod(
+        Invocation.method(
+          #stopAdvertising,
+          [],
+        ),
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
+
+  @override
+  _i6.Future<bool> startScanning() => (super.noSuchMethod(
+        Invocation.method(
+          #startScanning,
+          [],
+        ),
+        returnValue: _i6.Future<bool>.value(false),
+      ) as _i6.Future<bool>);
+
+  @override
+  _i6.Future<void> stopScanning() => (super.noSuchMethod(
+        Invocation.method(
+          #stopScanning,
+          [],
+        ),
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
+
+  @override
+  _i6.Future<void> stopAll() => (super.noSuchMethod(
+        Invocation.method(
+          #stopAll,
+          [],
+        ),
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
+}
+
+/// A class which mocks [GuardianRepository].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockGuardianRepository extends _i1.Mock
+    implements _i4.GuardianRepository {
+  MockGuardianRepository() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i6.Future<List<_i4.GuardianModel>> fetchGuardians() => (super.noSuchMethod(
+        Invocation.method(
+          #fetchGuardians,
+          [],
+        ),
+        returnValue:
+            _i6.Future<List<_i4.GuardianModel>>.value(<_i4.GuardianModel>[]),
+      ) as _i6.Future<List<_i4.GuardianModel>>);
+
+  @override
+  _i6.Future<_i4.GuardianModel> addGuardian({
+    required String? name,
+    required String? phone,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #addGuardian,
+          [],
+          {
+            #name: name,
+            #phone: phone,
+          },
+        ),
+        returnValue: _i6.Future<_i4.GuardianModel>.value(_FakeGuardianModel_2(
+          this,
+          Invocation.method(
+            #addGuardian,
+            [],
+            {
+              #name: name,
+              #phone: phone,
+            },
+          ),
+        )),
+      ) as _i6.Future<_i4.GuardianModel>);
+
+  @override
+  _i6.Future<void> deleteGuardian(String? id) => (super.noSuchMethod(
+        Invocation.method(
+          #deleteGuardian,
+          [id],
+        ),
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 }

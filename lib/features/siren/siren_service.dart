@@ -21,7 +21,7 @@ class SirenService {
     // For this prototype, we'll simulate the physical stress via intense device vibration patterns
     // combined with the UI flashing red (handled by bloc/ui listener).
     
-    if (await Vibration.hasVibrator() ?? false) {
+    if (await Vibration.hasVibrator()) {
       // Very aggressive SOS pattern
       Vibration.vibrate(
         pattern: [0, 500, 100, 500, 100, 500, 300, 800, 100, 800, 100, 800],
@@ -40,3 +40,4 @@ class SirenService {
     Vibration.cancel();
   }
 }
+

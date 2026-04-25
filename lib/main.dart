@@ -10,6 +10,7 @@ import 'package:kawach/core/config/app_config.dart';
 import 'package:kawach/core/database/local_database.dart';
 import 'package:kawach/core/services/logger_service.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
@@ -22,6 +23,11 @@ import 'package:kawach/features/sos/presentation/bloc/sos_bloc.dart';
 import 'package:kawach/features/ai/guardian_ai/guardian_chat_service.dart';
 import 'package:kawach/app/app.dart';
 import 'package:kawach/core/widgets/app_error_boundary.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:kawach/features/sos/data/smartwatch_media_interceptor.dart';
+import 'package:kawach/features/sos/data/hardware_button_interceptor.dart';
+import 'package:kawach/features/mesh/nearby_mesh_service.dart';
+import 'package:kawach/features/guardians/data/guardian_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +38,11 @@ void main() async {
   } catch (e) {
     debugPrint('KAWACH: .env load failed — $e');
   }
+
+  // Prevent main isolate from sleeping to ensure lock screen volume buttons work
+  try {
+    WakelockPlus.enable();
+  } catch (_) {}
 
   // Choose Env (Dev/Prod) based on build flavor
   final config = kReleaseMode ? AppConfig.prod() : AppConfig.dev();
@@ -103,9 +114,46 @@ void main() async {
     debugPrint('KAWACH: BackgroundService failed — $e');
   }
 
+  // Initialize Smartwatch Audio Interceptor
+  try {
+    final audioHandler = await AudioService.init(
+      builder: () => SmartwatchAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.kawach.app.channel.audio',
+        androidNotificationChannelName: 'Kawach Guardian',
+        androidNotificationOngoing: true,
+      ),
+    );
+    if (!getIt.isRegistered<SmartwatchAudioHandler>()) {
+      getIt.registerSingleton<SmartwatchAudioHandler>(audioHandler);
+    }
+    debugPrint('KAWACH: Smartwatch Audio Interceptor ready');
+  } catch (e) {
+    debugPrint('KAWACH: Smartwatch Audio Interceptor failed — $e');
+  }
+
+  // Initialize Hardware Volume Button Interceptor
+  try {
+    getIt<HardwareButtonInterceptor>().initialize();
+    debugPrint('KAWACH: Hardware Volume Button Interceptor ready');
+  } catch (e) {
+    debugPrint('KAWACH: Hardware Volume Button Interceptor failed — $e');
+  }
+
   // Request Permissions on Startup
   await _requestAllPermissions();
   debugPrint('KAWACH: Permissions requested');
+
+  // Initialize Offline Mesh Relay
+  try {
+    final bool isMeshRelayEnabled = prefs.getBool('mesh_relay') ?? true;
+    if (isMeshRelayEnabled) {
+      await getIt<NearbyMeshService>().startScanning();
+      debugPrint('KAWACH: NearbyMeshService Relay Active');
+    }
+  } catch (e) {
+    debugPrint('KAWACH: NearbyMeshService init failed — $e');
+  }
 
   // Flutter Error Boundary
   FlutterError.onError = (details) {
@@ -114,6 +162,16 @@ void main() async {
       getIt<LoggerService>().error('Flutter Error', details.exception, details.stack);
     }
   };
+
+  // Warm up guardian cache for offline SMS fallback
+  try {
+    if (getIt.isRegistered<GuardianRepository>()) {
+      getIt<GuardianRepository>().fetchGuardians();
+      debugPrint('KAWACH: Guardian cache warm-up started');
+    }
+  } catch (e) {
+    debugPrint('KAWACH: Guardian warm-up failed — $e');
+  }
 
   // Initialize Sentry (non-blocking — skip if no DSN)
   if (config.sentryDsn.isNotEmpty) {
@@ -133,18 +191,22 @@ void main() async {
 
 void _launchApp() {
   // Listen for Supabase session expiry / sign-out and force re-login
-  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-    final event = data.event;
-    if (event == AuthChangeEvent.signedOut ||
-        event == AuthChangeEvent.tokenRefreshed && data.session == null) {
-      // Clear persisted bloc state to avoid stale data on next login
-      HydratedBloc.storage.clear();
-      // Reset AI chat session so previous user's history doesn't leak
-      if (getIt.isRegistered<GuardianChatService>()) {
-        getIt<GuardianChatService>().resetSession();
+  try {
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedOut ||
+          event == AuthChangeEvent.tokenRefreshed && data.session == null) {
+        // Clear persisted bloc state to avoid stale data on next login
+        HydratedBloc.storage.clear();
+        // Reset AI chat session so previous user's history doesn't leak
+        if (getIt.isRegistered<GuardianChatService>()) {
+          getIt<GuardianChatService>().resetSession();
+        }
       }
-    }
-  });
+    });
+  } catch (e) {
+    debugPrint('KAWACH: Auth listener skipped — $e');
+  }
 
   runApp(
     AppErrorBoundary(
@@ -168,6 +230,7 @@ Future<void> _requestAllPermissions() async {
     Permission.bluetoothScan,
     Permission.bluetoothConnect,
     Permission.notification,
+    Permission.sms,
   ].request();
 
   // Android specific: ignore battery optimizations

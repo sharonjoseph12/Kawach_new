@@ -21,15 +21,22 @@ SosAlert _$SosAlertFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$SosAlert {
   String get id => throw _privateConstructorUsedError;
+  @JsonKey(name: 'user_id')
   String get userId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'latitude')
   double get lat => throw _privateConstructorUsedError;
+  @JsonKey(name: 'longitude')
   double get lng => throw _privateConstructorUsedError;
   double? get accuracy => throw _privateConstructorUsedError;
+  @JsonKey(name: 'battery_pct')
   int? get batteryPct => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
+  @JsonKey(name: 'trigger_type')
   String? get triggerType => throw _privateConstructorUsedError;
   String get origin => throw _privateConstructorUsedError;
+  @JsonKey(name: 'resolved_at')
   DateTime? get resolvedAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -45,16 +52,16 @@ abstract class $SosAlertCopyWith<$Res> {
   @useResult
   $Res call(
       {String id,
-      String userId,
-      double lat,
-      double lng,
+      @JsonKey(name: 'user_id') String userId,
+      @JsonKey(name: 'latitude') double lat,
+      @JsonKey(name: 'longitude') double lng,
       double? accuracy,
-      int? batteryPct,
+      @JsonKey(name: 'battery_pct') int? batteryPct,
       String status,
-      String? triggerType,
+      @JsonKey(name: 'trigger_type') String? triggerType,
       String origin,
-      DateTime? resolvedAt,
-      DateTime createdAt});
+      @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
+      @JsonKey(name: 'created_at') DateTime createdAt});
 }
 
 /// @nodoc
@@ -141,16 +148,16 @@ abstract class _$$SosAlertImplCopyWith<$Res>
   @useResult
   $Res call(
       {String id,
-      String userId,
-      double lat,
-      double lng,
+      @JsonKey(name: 'user_id') String userId,
+      @JsonKey(name: 'latitude') double lat,
+      @JsonKey(name: 'longitude') double lng,
       double? accuracy,
-      int? batteryPct,
+      @JsonKey(name: 'battery_pct') int? batteryPct,
       String status,
-      String? triggerType,
+      @JsonKey(name: 'trigger_type') String? triggerType,
       String origin,
-      DateTime? resolvedAt,
-      DateTime createdAt});
+      @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
+      @JsonKey(name: 'created_at') DateTime createdAt});
 }
 
 /// @nodoc
@@ -230,16 +237,16 @@ class __$$SosAlertImplCopyWithImpl<$Res>
 class _$SosAlertImpl implements _SosAlert {
   const _$SosAlertImpl(
       {required this.id,
-      required this.userId,
-      required this.lat,
-      required this.lng,
+      @JsonKey(name: 'user_id') required this.userId,
+      @JsonKey(name: 'latitude') required this.lat,
+      @JsonKey(name: 'longitude') required this.lng,
       this.accuracy,
-      this.batteryPct,
-      this.status = 'active',
-      this.triggerType,
+      @JsonKey(name: 'battery_pct') this.batteryPct,
+      this.status = 'triggered',
+      @JsonKey(name: 'trigger_type') this.triggerType,
       this.origin = 'online',
-      this.resolvedAt,
-      required this.createdAt});
+      @JsonKey(name: 'resolved_at') this.resolvedAt,
+      @JsonKey(name: 'created_at') required this.createdAt});
 
   factory _$SosAlertImpl.fromJson(Map<String, dynamic> json) =>
       _$$SosAlertImplFromJson(json);
@@ -247,26 +254,33 @@ class _$SosAlertImpl implements _SosAlert {
   @override
   final String id;
   @override
+  @JsonKey(name: 'user_id')
   final String userId;
   @override
+  @JsonKey(name: 'latitude')
   final double lat;
   @override
+  @JsonKey(name: 'longitude')
   final double lng;
   @override
   final double? accuracy;
   @override
+  @JsonKey(name: 'battery_pct')
   final int? batteryPct;
   @override
   @JsonKey()
   final String status;
   @override
+  @JsonKey(name: 'trigger_type')
   final String? triggerType;
   @override
   @JsonKey()
   final String origin;
   @override
+  @JsonKey(name: 'resolved_at')
   final DateTime? resolvedAt;
   @override
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
 
   @override
@@ -318,17 +332,18 @@ class _$SosAlertImpl implements _SosAlert {
 
 abstract class _SosAlert implements SosAlert {
   const factory _SosAlert(
-      {required final String id,
-      required final String userId,
-      required final double lat,
-      required final double lng,
-      final double? accuracy,
-      final int? batteryPct,
-      final String status,
-      final String? triggerType,
-      final String origin,
-      final DateTime? resolvedAt,
-      required final DateTime createdAt}) = _$SosAlertImpl;
+          {required final String id,
+          @JsonKey(name: 'user_id') required final String userId,
+          @JsonKey(name: 'latitude') required final double lat,
+          @JsonKey(name: 'longitude') required final double lng,
+          final double? accuracy,
+          @JsonKey(name: 'battery_pct') final int? batteryPct,
+          final String status,
+          @JsonKey(name: 'trigger_type') final String? triggerType,
+          final String origin,
+          @JsonKey(name: 'resolved_at') final DateTime? resolvedAt,
+          @JsonKey(name: 'created_at') required final DateTime createdAt}) =
+      _$SosAlertImpl;
 
   factory _SosAlert.fromJson(Map<String, dynamic> json) =
       _$SosAlertImpl.fromJson;
@@ -336,24 +351,31 @@ abstract class _SosAlert implements SosAlert {
   @override
   String get id;
   @override
+  @JsonKey(name: 'user_id')
   String get userId;
   @override
+  @JsonKey(name: 'latitude')
   double get lat;
   @override
+  @JsonKey(name: 'longitude')
   double get lng;
   @override
   double? get accuracy;
   @override
+  @JsonKey(name: 'battery_pct')
   int? get batteryPct;
   @override
   String get status;
   @override
+  @JsonKey(name: 'trigger_type')
   String? get triggerType;
   @override
   String get origin;
   @override
+  @JsonKey(name: 'resolved_at')
   DateTime? get resolvedAt;
   @override
+  @JsonKey(name: 'created_at')
   DateTime get createdAt;
   @override
   @JsonKey(ignore: true)

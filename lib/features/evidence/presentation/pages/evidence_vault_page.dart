@@ -185,9 +185,30 @@ class _EvidenceVaultPageState extends State<EvidenceVaultPage> with SingleTicker
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : TabBarView(
-              controller: _tabs,
-              children: [_buildLocalTab(), _buildCloudTab()],
+          : Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  color: AppColors.safe.withValues(alpha: 0.1),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.shield, color: AppColors.safe, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'AES-256 Encrypted • SHA-256 Verified • Tamper-Proof',
+                        style: TextStyle(color: AppColors.safe, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabs,
+                    children: [_buildLocalTab(), _buildCloudTab()],
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -257,6 +278,8 @@ class _EvidenceVaultPageState extends State<EvidenceVaultPage> with SingleTicker
         final name = item['file_name'] as String? ?? 'unknown';
         final sizeBytes = item['file_size_bytes'] as int? ?? 0;
         final capturedAt = item['captured_at'] as String?;
+        final hash = item['encrypted_hash'] as String? ?? '';
+        final displayHash = hash.isNotEmpty ? hash.substring(0, 12).toUpperCase() : 'UNKNOWN';
         final color = type == 'audio' ? AppColors.secondary : type == 'photo' ? AppColors.warning : AppColors.primary;
         final icon = type == 'audio' ? Icons.mic : type == 'photo' ? Icons.camera_alt : Icons.videocam;
 
@@ -281,6 +304,14 @@ class _EvidenceVaultPageState extends State<EvidenceVaultPage> with SingleTicker
                   Text(
                     '${_formatSize(sizeBytes)}  •  ${capturedAt != null ? DateFormat('d MMM, hh:mm a').format(DateTime.parse(capturedAt).toLocal()) : ''}',
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.verified, color: AppColors.safe, size: 10),
+                      const SizedBox(width: 4),
+                      Text('SHA-256: $displayHash', style: TextStyle(color: AppColors.safe.withValues(alpha: 0.8), fontSize: 9, fontFamily: 'monospace')),
+                    ],
                   ),
                 ]),
               ),

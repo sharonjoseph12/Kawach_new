@@ -35,6 +35,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       Permission.bluetoothScan,
       Permission.ignoreBatteryOptimizations,
       Permission.notification,
+      Permission.sms,
     ].request();
     setState(() => _permissionsGranted = true);
   }
@@ -240,6 +241,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const Text('Set Your Safe Walk PIN', style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
           const SizedBox(height: 8),
           const Text('This PIN cancels your Safe Walk timer. It\'s stored with encryption only on your device.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14), textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          const _AnimatedFeatureCount(),
+          const SizedBox(height: 24),
           const SizedBox(height: 40),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -288,3 +292,51 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   );
 }
+
+class _AnimatedFeatureCount extends StatelessWidget {
+  const _AnimatedFeatureCount();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.safe.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.safe.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildCountItem('Triggers', 7),
+              _buildCountItem('Features', 16),
+              _buildCountItem('Hours', 24),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text('Your device is now a comprehensive safety shield.', style: TextStyle(color: AppColors.safe, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountItem(String label, int target) {
+    return Column(
+      children: [
+        TweenAnimationBuilder<int>(
+          tween: IntTween(begin: 0, end: target),
+          duration: const Duration(milliseconds: 1500),
+          curve: Curves.easeOutCubic,
+          builder: (ctx, val, child) => Text(
+            val.toString(),
+            style: const TextStyle(color: AppColors.safe, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Text(label, style: const TextStyle(color: AppColors.safe, fontSize: 10)),
+      ],
+    );
+  }
+}
+

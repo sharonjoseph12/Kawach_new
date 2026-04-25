@@ -7,16 +7,16 @@ part 'sos_alert.g.dart';
 class SosAlert with _$SosAlert {
   const factory SosAlert({
     required String id,
-    required String userId,
-    required double lat,
-    required double lng,
+    @JsonKey(name: 'user_id') required String userId,
+    @JsonKey(name: 'latitude') required double lat,
+    @JsonKey(name: 'longitude') required double lng,
     double? accuracy,
-    int? batteryPct,
-    @Default('active') String status,
-    String? triggerType,
+    @JsonKey(name: 'battery_pct') int? batteryPct,
+    @Default('triggered') String status,
+    @JsonKey(name: 'trigger_type') String? triggerType,
     @Default('online') String origin,
-    DateTime? resolvedAt,
-    required DateTime createdAt,
+    @JsonKey(name: 'resolved_at') DateTime? resolvedAt,
+    @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _SosAlert;
 
   factory SosAlert.fromJson(Map<String, dynamic> json) => _$SosAlertFromJson(json);

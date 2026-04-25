@@ -43,7 +43,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           content: Text('Profile saved!'),
           backgroundColor: AppColors.safe,
         ));
-        context.pop();
+        context.go('/');
       }
     } catch (e) {
       if (mounted) {

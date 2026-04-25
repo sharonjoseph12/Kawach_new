@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:kawach/core/theme/app_colors.dart';
 import 'package:kawach/services/camouflage_service.dart';
+import 'package:kawach/core/services/demo_mode_service.dart';
+import 'package:kawach/app/di/injection.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -15,9 +17,13 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _audioDetection = true;
+  bool _shakeDetection = true;
   bool _behavioralAnomaly = true;
   bool _meshRelay = true;
   bool _camouflageMode = false;
+  bool _demoMode = false;
+  bool _demoUnlocked = false;
+  int _aboutTapCount = 0;
   bool _signingOut = false;
   String _phone = '';
   String _appVersion = '1.0.0';
@@ -39,9 +45,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
     setState(() {
       _audioDetection = prefs.getBool('audio_detection') ?? true;
+      _shakeDetection = prefs.getBool('shake_detection') ?? true;
       _behavioralAnomaly = prefs.getBool('behavioral_anomaly') ?? true;
       _meshRelay = prefs.getBool('mesh_relay') ?? true;
       _camouflageMode = prefs.getBool('camouflage_mode') ?? false;
+      _demoMode = getIt<DemoModeService>().isActive;
+      _demoUnlocked = prefs.getBool('demo_unlocked') ?? false;
       _phone = user?.phone ?? user?.email ?? 'Not signed in';
       _appVersion = versionText;
     });
@@ -50,6 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('audio_detection', _audioDetection);
+    await prefs.setBool('shake_detection', _shakeDetection);
     await prefs.setBool('behavioral_anomaly', _behavioralAnomaly);
     await prefs.setBool('mesh_relay', _meshRelay);
     await prefs.setBool('camouflage_mode', _camouflageMode);
@@ -73,6 +83,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (confirm != true || !mounted) return;
     setState(() => _signingOut = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('profile_setup_done');
     await Supabase.instance.client.auth.signOut();
     if (mounted) context.go('/phone');
   }
@@ -139,6 +151,14 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) { setState(() => _audioDetection = v); _save(); },
             ),
             _SwitchTile(
+              icon: Icons.vibration,
+              title: 'Shake to SOS',
+              subtitle: 'Trigger SOS by vigorously shaking phone',
+              iconColor: AppColors.danger,
+              value: _shakeDetection,
+              onChanged: (v) { setState(() => _shakeDetection = v); _save(); },
+            ),
+            _SwitchTile(
               icon: Icons.psychology_outlined,
               title: 'Behavioral Anomaly',
               subtitle: 'Detect unusual movement patterns',
@@ -185,13 +205,44 @@ class _SettingsPageState extends State<SettingsPage> {
               iconColor: AppColors.safe,
               onTap: () => context.push('/diagnostics'),
             ),
-            _TileButton(
-              icon: Icons.info_outline,
-              title: 'About Kawach',
-              subtitle: 'Version $_appVersion • Made with ❤️ for safety',
-              iconColor: AppColors.textSecondary,
-              onTap: () {},
+            GestureDetector(
+              onLongPress: () async {
+                _aboutTapCount++;
+                final sm = ScaffoldMessenger.of(context);
+                if (_aboutTapCount >= 5 && !_demoUnlocked) {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('demo_unlocked', true);
+                  setState(() => _demoUnlocked = true);
+                  sm.showSnackBar(
+                    SnackBar(
+                      content: const Text('🎯 Demo Mode unlocked!'),
+                      backgroundColor: AppColors.safe,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  );
+                }
+              },
+              child: _TileButton(
+                icon: Icons.info_outline,
+                title: 'About Kawach',
+                subtitle: 'Version $_appVersion • Made with ❤️ for safety',
+                iconColor: AppColors.textSecondary,
+                onTap: () {},
+              ),
             ),
+            if (_demoUnlocked)
+              _SwitchTile(
+                icon: Icons.science_outlined,
+                title: 'Demo Mode',
+                subtitle: 'Safe demo for judges — no real SOS triggers',
+                iconColor: AppColors.warning,
+                value: _demoMode,
+                onChanged: (v) async {
+                  await getIt<DemoModeService>().toggle();
+                  setState(() => _demoMode = v);
+                },
+              ),
           ]),
 
           // ── Danger zone ───────────────────────────────────────────────

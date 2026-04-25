@@ -14,8 +14,7 @@ dependencies:
   flutter_bloc: ^8.1.4
   hydrated_bloc: ^9.1.4
   go_router: ^13.0.0
-  flutter_map: ^6.1.0
-  latlong2: ^0.9.0
+  google_maps_flutter: ^2.6.0
   geolocator: ^11.0.0
   sensors_plus: ^7.0.0
   flutter_blue_plus: ^1.31.0
@@ -41,7 +40,7 @@ dependencies:
   shared_preferences: ^2.2.2
   connectivity_plus: ^6.0.3
   wakelock_plus: ^1.1.4
-  vibration: ^1.8.4
+  vibration: 3.0.0
   audioplayers: ^6.6.0
   shimmer: ^3.0.0
   lottie: ^3.0.0
@@ -64,6 +63,12 @@ dependencies:
   package_info_plus: ^9.0.1
   local_auth: ^3.0.1
   screen_brightness: ^2.1.7
+  nearby_connections: ^4.3.0
+  flutter_activity_recognition: ^4.0.0
+  audio_service: ^0.18.18
+  perfect_volume_control: ^1.0.6
+  flutter_tts: ^4.2.5
+  telephony: ^0.2.0
 
 dependency_overrides:
   google_fonts: ^6.2.1
