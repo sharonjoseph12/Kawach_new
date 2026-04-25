@@ -42,7 +42,6 @@ app.*.map.json
 # Environment secrets
 .env
 .env.*
-!.env.example
 
 # Android Studio will place build artifacts here
 /android/app/debug
