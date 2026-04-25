@@ -1,5 +1,7 @@
 import 'package:injectable/injectable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:telephony/telephony.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../domain/entities/sos_alert.dart';
 
 abstract class SosRemoteDataSource {
@@ -50,6 +52,40 @@ class SosRemoteDataSourceImpl implements SosRemoteDataSource {
       });
     } catch (_) {}
 
+    // Trigger edge function to notify guardians via SMS
+    try {
+      await _supabase.functions.invoke('notify-guardians', body: {
+        'sos_id': response['id'],
+      });
+    } catch (e) {
+      // Proceed even if notification fails, the alert is still active
+      print('Failed to notify guardians via edge function: $e');
+    }
+
+    // HACKATHON FIX: Native local SMS fallback to guarantee messages are sent
+    try {
+      final guardianData = await _supabase.from('guardians').select('contact_phone').eq('user_id', uid);
+      final telephony = Telephony.instance;
+      bool permissionsGranted = await Permission.sms.isGranted;
+      
+      if (permissionsGranted) {
+        String googleMapsLink = "https://maps.google.com/?q=$lat,$lng";
+        String message = "SOS! I am in danger. My battery is $battery%. Location: $googleMapsLink";
+        
+        for (var g in guardianData) {
+          final phone = g['contact_phone'] as String?;
+          if (phone != null && phone.isNotEmpty) {
+            await telephony.sendSms(to: phone, message: message);
+            print('KAWACH: Sent native SMS to $phone');
+          }
+        }
+      } else {
+        print('KAWACH: SMS permission not granted, skipping native SMS');
+      }
+    } catch (e) {
+      print('KAWACH: Native SMS send failed - $e');
+    }
+
     return SosAlert.fromJson(response);
   }
 
@@ -68,7 +104,7 @@ class SosRemoteDataSourceImpl implements SosRemoteDataSource {
         .from('sos_alerts')
         .stream(primaryKey: ['id'])
         .map((events) => events
-            .where((e) => e['user_id'] == userId && e['status'] == 'active')
+            .where((e) => e['user_id'] == userId && e['status'] == 'triggered')
             .toList())
         .map((events) => events.isEmpty ? null : SosAlert.fromJson(events.first));
   }

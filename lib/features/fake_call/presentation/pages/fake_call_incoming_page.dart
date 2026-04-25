@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:kawach/core/theme/app_colors.dart';
 
 class FakeCallIncomingPage extends StatefulWidget {
@@ -20,6 +21,7 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
 
   // Simulate ringing timer so that if they don't answer in 30s it "misses"
   Timer? _ringTimer;
+  final FlutterTts _flutterTts = FlutterTts();
 
   @override
   void initState() {
@@ -34,8 +36,8 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
   }
 
   void _startRingingVibration() async {
-    if (await Vibration.hasVibrator() ?? false) {
-      if (await Vibration.hasCustomVibrationsSupport() ?? false) {
+    if (await Vibration.hasVibrator()) {
+      if (await Vibration.hasCustomVibrationsSupport()) {
         // pattern: wait, vibrate, wait, vibrate...
         Vibration.vibrate(pattern: [0, 1000, 1000, 1000, 1000, 1000, 1000, 1000], intensities: [0, 255, 0, 255, 0, 255, 0, 255]);
       } else {
@@ -44,7 +46,7 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
     }
   }
 
-  void _answerCall() {
+  void _answerCall() async {
     Vibration.cancel();
     _ringTimer?.cancel();
     setState(() => _isAnswered = true);
@@ -54,18 +56,25 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
       setState(() => _callDurationSeconds++);
     });
     
-    // In a real app with audio packages, we would play a pre-recorded mp3 
-    // of a conversational voice locally here. For this iteration, UI serves the purpose.
+    // Play Deterrent Audio
+    await _flutterTts.setLanguage("en-IN");
+    await _flutterTts.setPitch(0.9);
+    await _flutterTts.setSpeechRate(0.5);
+    
+    await Future.delayed(const Duration(seconds: 1));
+    await _flutterTts.speak("Hello, this is the Bangalore Police Control Room. We have detected an anomaly and route deviation from your device. Are you safe? Officers are currently en route to your live GPS location. Please stay on the line.");
   }
 
   void _declineCall() {
     Vibration.cancel();
+    _flutterTts.stop();
     context.pop();
   }
 
   @override
   void dispose() {
     Vibration.cancel();
+    _flutterTts.stop();
     _callTimer?.cancel();
     _ringTimer?.cancel();
     super.dispose();
@@ -226,3 +235,4 @@ class _CallActionBtn extends StatelessWidget {
     );
   }
 }
+

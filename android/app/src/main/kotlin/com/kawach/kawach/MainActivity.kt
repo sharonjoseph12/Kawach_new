@@ -90,7 +90,7 @@ class MainActivity : FlutterActivity() {
             }
             lastVolumePressTime = currentTime
 
-            if (volumeButtonCount >= 5) {
+            if (volumeButtonCount >= 3) {
                 eventSink?.success(volumeButtonCount)
                 volumeButtonCount = 0 // Reset after trigger
             }

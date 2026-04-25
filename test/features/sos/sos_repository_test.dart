@@ -8,20 +8,30 @@ import 'package:kawach/features/sos/data/sos_repository_impl.dart';
 import 'package:kawach/features/sos/domain/entities/sos_alert.dart';
 import 'package:kawach/features/sos/data/sos_queue_manager.dart';
 
+import 'package:kawach/features/fallback/sms_fallback_service.dart';
+import 'package:kawach/features/mesh/nearby_mesh_service.dart';
+import 'package:kawach/features/guardians/data/guardian_repository.dart';
+
 import 'sos_repository_test.mocks.dart';
 
-@GenerateMocks([SosRemoteDataSource, LocalDatabase, SosQueueManager])
+@GenerateMocks([SosRemoteDataSource, LocalDatabase, SosQueueManager, SmsFallbackService, NearbyMeshService, GuardianRepository])
 void main() {
   late SosRepositoryImpl repository;
   late MockSosRemoteDataSource mockRemoteDataSource;
   late MockLocalDatabase mockLocalDatabase;
   late MockSosQueueManager mockSosQueueManager;
+  late MockSmsFallbackService mockSmsFallbackService;
+  late MockNearbyMeshService mockNearbyMeshService;
+  late MockGuardianRepository mockGuardianRepository;
 
   setUp(() {
     mockRemoteDataSource = MockSosRemoteDataSource();
     mockLocalDatabase = MockLocalDatabase();
     mockSosQueueManager = MockSosQueueManager();
-    repository = SosRepositoryImpl(mockRemoteDataSource, mockLocalDatabase, mockSosQueueManager);
+    mockSmsFallbackService = MockSmsFallbackService();
+    mockNearbyMeshService = MockNearbyMeshService();
+    mockGuardianRepository = MockGuardianRepository();
+    repository = SosRepositoryImpl(mockRemoteDataSource, mockLocalDatabase, mockSosQueueManager, mockSmsFallbackService, mockNearbyMeshService, mockGuardianRepository);
   });
 
   final tSosAlert = SosAlert(

@@ -51,7 +51,7 @@ class GuardianRepository {
       'user_id': uid,
       'contact_name': name,
       'contact_phone': phone,
-      'verified': false,
+      'verified': true,
       'is_app_user': false,
     }).select().single();
     return GuardianModel.fromJson(res);

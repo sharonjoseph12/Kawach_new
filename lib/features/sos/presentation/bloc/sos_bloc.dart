@@ -20,16 +20,27 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
   
   final SosRepository _repository;
   final EvidenceUploadService _evidenceUploadService;
+  final SmsFallbackService _smsFallbackService;
   final Battery _battery = Battery();
   StreamSubscription? _locationSubscription;
   StreamSubscription? _activeSosSubscription;
 
-  SosBloc(this._repository, this._evidenceUploadService) : super(SosInitial()) {
+  SosBloc(this._repository, this._evidenceUploadService, this._smsFallbackService) : super(SosInitial()) {
     on<SosTriggerPressed>((event, emit) async {
       emit(SosTriggering());
       
       try {
-        final position = await Geolocator.getCurrentPosition();
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        ).timeout(const Duration(seconds: 6), onTimeout: () async {
+          // Fallback: use last known position if GPS is slow
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) return last;
+          // Absolute fallback: get any position quickly
+          return Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.low,
+          );
+        });
         final batteryLevel = await _battery.batteryLevel;
         
         final result = await _repository.triggerSOS(
@@ -43,7 +54,7 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
           (failure) async {
             // Offline fallback -> Fetch real guardian phones then dispatch SMS
             final phones = await _fetchGuardianPhones();
-            SmsFallbackService().dispatchOfflineDistress(
+            _smsFallbackService.dispatchOfflineDistress(
               lat: position.latitude,
               lng: position.longitude,
               guardianPhones: phones,
@@ -158,14 +169,14 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
   @override
   SosState? fromJson(Map<String, dynamic> json) {
     try {
-      if (json['status'] == 'active') {
+      if (json['status'] == 'triggered') {
         EvidenceAudioPipeline().startContinuousRecording(json['id']);
         _startTracking();
         return SosActive(
           alert: SosAlert.fromJson(json),
-          currentLat: json['lat'],
-          currentLng: json['lng'],
-          evidenceCount: json['evidenceCount'] ?? 0,
+          currentLat: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+          currentLng: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+          evidenceCount: json['evidenceCount'] as int? ?? 0,
         );
       }
     } catch (_) {}
@@ -176,7 +187,7 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
   Map<String, dynamic>? toJson(SosState state) {
     if (state is SosActive) {
       final json = state.alert.toJson();
-      json['status'] = 'active';
+      json['status'] = 'triggered';
       json['evidenceCount'] = state.evidenceCount;
       return json;
     } else if (state is SosInitial || state is SosResolved) {

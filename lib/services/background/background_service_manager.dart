@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' hide ActivityType;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -12,9 +13,12 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:math';
+import 'package:flutter_activity_recognition/flutter_activity_recognition.dart';
 import 'package:kawach/features/evidence/data/evidence_audio_pipeline.dart';
-
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:telephony/telephony.dart';
 
 class BackgroundServiceManager {
   BackgroundServiceManager._();
@@ -111,8 +115,19 @@ void onStart(ServiceInstance service) async {
     });
     bool hasFiredDeadDrop = false;
 
+    ActivityType currentActivity = ActivityType.UNKNOWN;
+    try {
+      FlutterActivityRecognition.instance.activityStream.listen((activity) {
+        currentActivity = activity.type;
+        debugPrint('Activity changed: ${activity.type}');
+      });
+    } catch (_) {}
+
     // ── Main GPS monitoring loop ──────────────────────────────────────────────
     Timer.periodic(const Duration(seconds: 15), (timer) async {
+      if (currentActivity == ActivityType.STILL) {
+        return; // Hibernate to save battery
+      }
       try {
         final batteryLevel = await battery.batteryLevel;
         final batteryState = await battery.batteryState;
@@ -126,15 +141,14 @@ void onStart(ServiceInstance service) async {
               Position? pos;
               try { pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high).timeout(const Duration(seconds: 5)); } catch (_) {}
               
-              await Supabase.instance.client.from('sos_alerts').insert({
-                'user_id': uid,
-                'latitude': pos?.latitude ?? 0.0,
-                'longitude': pos?.longitude ?? 0.0,
-                'battery_pct': batteryLevel,
-                'trigger_type': 'dead_battery',
-                'status': 'triggered',
-                'origin': 'background_isolate_critical_battery',
-              });
+              await _insertBackgroundSos(
+                uid: uid,
+                lat: pos?.latitude ?? 0.0,
+                lng: pos?.longitude ?? 0.0,
+                batteryLevel: batteryLevel,
+                triggerType: 'dead_battery',
+                origin: 'background_isolate_critical_battery',
+              );
               
               await flutterLocalNotificationsPlugin.show(
                 891,
@@ -169,12 +183,34 @@ void onStart(ServiceInstance service) async {
             }
           }
 
-          // Broadcast location update for live guardian tracking
+          // Broadcast location update for live guardian tracking (UI only)
           service.invoke('locationUpdate', {
             'lat': position.latitude,
             'lng': position.longitude,
             'timestamp': DateTime.now().toIso8601String(),
           });
+
+          // THE LOCAL BLACK-BOX PROTOCOL
+          // Save locally instead of uploading to cloud to reduce surveillance anxiety
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final historyJson = prefs.getStringList('black_box_gps_history') ?? [];
+            
+            final newPoint = jsonEncode({
+              'lat': position.latitude,
+              'lng': position.longitude,
+              'time': DateTime.now().toIso8601String(),
+            });
+            
+            historyJson.add(newPoint);
+            
+            // Keep only the last 15 minutes (approx 60 points at 15s intervals)
+            if (historyJson.length > 60) {
+              historyJson.removeAt(0);
+            }
+            
+            await prefs.setStringList('black_box_gps_history', historyJson);
+          } catch (_) {}
         }
       } catch (e, st) {
         await Sentry.captureException(e, stackTrace: st,
@@ -197,15 +233,14 @@ void onStart(ServiceInstance service) async {
             Position? pos;
             try { pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high).timeout(const Duration(seconds: 5)); } catch (_) {}
             
-            await Supabase.instance.client.from('sos_alerts').insert({
-              'user_id': uid,
-              'latitude': pos?.latitude ?? 0.0,
-              'longitude': pos?.longitude ?? 0.0,
-              'battery_pct': await battery.batteryLevel,
-              'trigger_type': 'hard_fall',
-              'status': 'triggered',
-              'origin': 'background_isolate',
-            });
+            await _insertBackgroundSos(
+              uid: uid,
+              lat: pos?.latitude ?? 0.0,
+              lng: pos?.longitude ?? 0.0,
+              batteryLevel: await battery.batteryLevel,
+              triggerType: 'hard_fall',
+              origin: 'background_isolate',
+            );
             
             await flutterLocalNotificationsPlugin.show(
               889,
@@ -266,24 +301,152 @@ void onStart(ServiceInstance service) async {
         await Sentry.captureException(e, stackTrace: st, hint: Hint.withMap({'context': 'mesh_relay'}));
       }
     });
+
+    // ── AI Anomaly Detection (Gemini) ──────────────────────────────────────────
+    Timer.periodic(const Duration(minutes: 5), (timer) async {
+      try {
+        final batteryLevel = await battery.batteryLevel;
+        Position? pos;
+        try { pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).timeout(const Duration(seconds: 5)); } catch (_) {}
+        
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        final apiKey = dotenv.env['GEMINI_API_KEY'] ?? const String.fromEnvironment('GEMINI_API_KEY');
+        
+        if (uid != null && apiKey.isNotEmpty) {
+          final model = GenerativeModel(
+            model: 'gemini-1.5-flash',
+            apiKey: apiKey,
+          );
+          
+          final prompt = '''
+Analyze this ambient user data for anomalies:
+Location: ${pos?.latitude}, ${pos?.longitude}
+Battery: $batteryLevel%
+Time: ${DateTime.now().toIso8601String()}
+
+If the user is in extreme danger based on patterns, return [TRIGGER_SOS]. Otherwise return [SAFE].
+''';
+          final response = await model.generateContent([Content.text(prompt)]);
+          if (response.text?.contains('[TRIGGER_SOS]') == true) {
+             // trigger SOS
+             await _insertBackgroundSos(
+              uid: uid,
+              lat: pos?.latitude ?? 0.0,
+              lng: pos?.longitude ?? 0.0,
+              batteryLevel: batteryLevel,
+              triggerType: 'ai_behavioral',
+              origin: 'background_isolate',
+            );
+            await flutterLocalNotificationsPlugin.show(
+              892,
+              'KAWACH: AI Guardian Alert!',
+              'AI detected anomalous behavioral patterns. SOS triggered.',
+              const NotificationDetails(android: AndroidNotificationDetails('kawach_alerts', 'High Priority Alerts', importance: Importance.max, priority: Priority.high, color: Colors.red)),
+            );
+          }
+        }
+      } catch (e, st) {
+        await Sentry.captureException(e, stackTrace: st, hint: Hint.withMap({'context': 'ai_anomaly_detection'}));
+      }
+    });
 }
 
-/// Flush any queued SOSes that failed to upload while offline.
 Future<void> _flushSosQueue() async {
     try {
       // Flush offline encrypted audio files
       await EvidenceAudioPipeline().uploadPending();
       
-      // Read from a simple persistent list stored in shared_preferences
-      // keyed as 'kawach_sos_queue' (JSON array of SosAlert maps)
-      // Re-attempt upload to Supabase
-      // On success, remove from queue
-      // This is intentionally a lightweight implementation avoiding Isar in an isolate
-      // Full Isar isolate support requires passing the isar directory path via service invoke
+      // Read from the same StringList that SosQueueManager writes to
+      final prefs = await SharedPreferences.getInstance();
+      final queue = prefs.getStringList('kawach_sos_offline_queue') ?? [];
+      if (queue.isEmpty) return;
+      
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      if (uid == null) return;
+      
+      final remaining = <String>[];
+      
+      for (final entry in queue) {
+        try {
+          final Map<String, dynamic> data = jsonDecode(entry);
+          await _insertBackgroundSos(
+            uid: uid,
+            lat: (data['latitude'] as num?)?.toDouble() ?? 0.0,
+            lng: (data['longitude'] as num?)?.toDouble() ?? 0.0,
+            batteryLevel: (data['battery_pct'] as num?)?.toInt() ?? 0,
+            triggerType: data['trigger_type'] as String? ?? 'offline_queue',
+            origin: 'offline_queue',
+          );
+        } catch (e) {
+          remaining.add(entry); // keep failed ones for next retry
+        }
+      }
+      
+      await prefs.setStringList('kawach_sos_offline_queue', remaining);
     } catch (_) {
       // Silently ignore if flushing fails; retry next cycle
     }
   }
+
+/// Standardized SOS insert for background isolate — ensures consistent columns.
+Future<void> _insertBackgroundSos({
+  required String uid,
+  required double lat,
+  required double lng,
+  required int batteryLevel,
+  required String triggerType,
+  required String origin,
+}) async {
+  // Push the actual SOS alert
+  await Supabase.instance.client.from('sos_alerts').insert({
+    'user_id': uid,
+    'latitude': lat,
+    'longitude': lng,
+    'battery_pct': batteryLevel,
+    'trigger_type': triggerType,
+    'status': 'triggered',
+    'origin': origin,
+    'created_at': DateTime.now().toIso8601String(),
+  });
+
+  // Now that SOS is triggered, push the live location to the cloud tracker
+  try {
+    await Supabase.instance.client.from('sos_live_location').upsert({
+      'user_id': uid,
+      'latitude': lat,
+      'longitude': lng,
+      'battery_pct': batteryLevel,
+      'updated_at': DateTime.now().toIso8601String(),
+    }, onConflict: 'user_id');
+  } catch (_) {}
+
+  // HACKATHON FIX: Native local SMS fallback to guarantee messages are sent
+  try {
+    final guardianData = await Supabase.instance.client.from('guardians').select('contact_phone').eq('user_id', uid);
+    final telephony = Telephony.instance;
+    
+    // In background isolates, we cannot request permissions via UI. 
+    // We assume it was granted on app startup via main.dart
+    bool permissionsGranted = await Permission.sms.isGranted;
+    
+    if (permissionsGranted) {
+      String googleMapsLink = "https://maps.google.com/?q=$lat,$lng";
+      String message = "SOS! I am in danger. My battery is $batteryLevel%. Location: $googleMapsLink";
+      
+      for (var g in guardianData) {
+        final phone = g['contact_phone'] as String?;
+        if (phone != null && phone.isNotEmpty) {
+          await telephony.sendSms(to: phone, message: message);
+          debugPrint('KAWACH BACKGROUND: Sent native SMS to $phone');
+        }
+      }
+    } else {
+      debugPrint('KAWACH BACKGROUND: SMS permission not granted, skipping native SMS');
+    }
+  } catch (e) {
+    debugPrint('KAWACH BACKGROUND: Native SMS send failed - $e');
+  }
+}
 
 @pragma('vm:entry-point')
 bool onIosBackground(ServiceInstance service) {

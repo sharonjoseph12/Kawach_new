@@ -42,27 +42,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startPhysicalTriggers() {
-    // 1. Shake SOS
-    _shakeDetector = ShakeDetector(
-      onShakeDetected: _triggerSosFromPhysical,
-    );
+    _shakeDetector = ShakeDetector(onShakeDetected: _triggerSosFromPhysical);
     _shakeDetector.start();
-
-    // 2. Gesture SOS (3-finger tap)
-    _gestureDetector = GestureSosDetector(
-      onTrigger: _triggerSosFromPhysical,
-    );
+    _gestureDetector = GestureSosDetector(onTrigger: _triggerSosFromPhysical);
     _gestureDetector.start();
-
-    // 3. Power Button SOS (5 clicks)
-    PowerButtonDetector.sosTriggered.listen((_) {
-      _triggerSosFromPhysical();
-    });
+    PowerButtonDetector.sosTriggered.listen((_) => _triggerSosFromPhysical());
   }
 
   void _triggerSosFromPhysical() {
     if (mounted) {
-      // Don't trigger if already active to prevent duplicate blasts
       final currentState = context.read<SosBloc>().state;
       if (currentState is! SosActive && currentState is! SosTriggering) {
         context.read<SosBloc>().add(const SosTriggerPressed('physical_hardware'));
@@ -89,7 +77,6 @@ class _HomePageState extends State<HomePage> {
         onWakeWordDetected: () {
           if (mounted) {
             context.read<SosBloc>().add(const SosTriggerPressed('wake_word'));
-            // Visual feedback will trigger via BlocListener as normal.
           }
         },
       );
@@ -124,8 +111,7 @@ class _HomePageState extends State<HomePage> {
               content: Text(state.message),
               backgroundColor: AppColors.danger,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           );
         }
@@ -150,20 +136,13 @@ class _HomePageState extends State<HomePage> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary.withValues(alpha: 0.8),
-                              AppColors.secondary
-                            ],
+                            colors: [AppColors.primary.withValues(alpha: 0.8), AppColors.secondary],
                           ),
                         ),
                         child: Center(
                           child: Text(
                             _userName.isNotEmpty ? _userName[0].toUpperCase() : '?',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
+                            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
                           ),
                         ),
                       ),
@@ -171,19 +150,8 @@ class _HomePageState extends State<HomePage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _greeting(),
-                            style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 13),
-                          ),
-                          Text(
-                            _userName,
-                            style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 17),
-                          ),
+                          Text(_greeting(), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                          Text(_userName, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 17)),
                         ],
                       ),
                       const Spacer(),
@@ -193,6 +161,39 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const RiskIndicator(risk: 'moderate'),
                     ],
+                  ),
+                ),
+
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        // ── Active Protection Dashboard ──────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.safe.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('ACTIVE PROTECTION', style: GoogleFonts.orbitron(fontSize: 10, letterSpacing: 1.5, color: AppColors.textSecondary)),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const _StatusIndicator(label: 'AI Guardian', isActive: true),
+                            const _StatusIndicator(label: 'Mesh Node', isActive: true),
+                            _StatusIndicator(label: 'Battery Saver', isActive: _batteryLevel > 15),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -217,7 +218,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
 
-                const Spacer(),
+                const SizedBox(height: 32),
 
                 // ── SOS Button ────────────────────────────────────────
                 BlocBuilder<SosBloc, SosState>(
@@ -227,9 +228,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         SOSButton(
                           onTrigger: () {
-                            context
-                                .read<SosBloc>()
-                                .add(const SosTriggerPressed('manual'));
+                            context.read<SosBloc>().add(const SosTriggerPressed('manual'));
                           },
                         ),
                         const SizedBox(height: 12),
@@ -237,27 +236,16 @@ class _HomePageState extends State<HomePage> {
                           Shimmer.fromColors(
                             baseColor: AppColors.danger,
                             highlightColor: Colors.white,
-                            child: Text(
-                              'TRIGGERING SOS...',
-                              style: GoogleFonts.orbitron(
-                                  fontSize: 12, letterSpacing: 2),
-                            ),
+                            child: Text('TRIGGERING SOS...', style: GoogleFonts.orbitron(fontSize: 12, letterSpacing: 2)),
                           )
                         else
-                          Text(
-                            'PROTECTED BY KAWACH',
-                            style: GoogleFonts.orbitron(
-                              fontSize: 10,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 2,
-                            ),
-                          ),
+                          Text('PROTECTED BY KAWACH', style: GoogleFonts.orbitron(fontSize: 10, color: AppColors.textSecondary, letterSpacing: 2)),
                       ],
                     );
                   },
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 32),
 
                 // ── Area safety card ──────────────────────────────────
                 Padding(
@@ -269,9 +257,7 @@ class _HomePageState extends State<HomePage> {
                       decoration: BoxDecoration(
                         color: AppColors.card,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: AppColors.warning.withValues(alpha: 0.2),
-                            width: 1),
+                        border: Border.all(color: AppColors.warning.withValues(alpha: 0.2), width: 1),
                       ),
                       child: Column(
                         children: [
@@ -283,44 +269,26 @@ class _HomePageState extends State<HomePage> {
                                   color: AppColors.warning.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Icon(Icons.shield_outlined,
-                                    color: AppColors.warning, size: 20),
+                                child: const Icon(Icons.shield_outlined, color: AppColors.warning, size: 20),
                               ),
                               const SizedBox(width: 14),
                               const Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Moderate Risk Area',
-                                        style: TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14)),
-                                    Text('3 incidents nearby · last 30d',
-                                        style: TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 12)),
+                                    Text('Moderate Risk Area', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                                    Text('3 incidents nearby · last 30d', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                                   ],
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
                                   color: AppColors.warning.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: AppColors.warning.withValues(alpha: 0.4)),
+                                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
                                 ),
-                                child: Text(
-                                  '42',
-                                  style: GoogleFonts.orbitron(
-                                    color: AppColors.warning,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
+                                child: Text('42', style: GoogleFonts.orbitron(color: AppColors.warning, fontWeight: FontWeight.bold, fontSize: 16)),
                               ),
                             ],
                           ),
@@ -330,8 +298,7 @@ class _HomePageState extends State<HomePage> {
                             child: LinearProgressIndicator(
                               value: 0.42,
                               backgroundColor: AppColors.textSecondary.withValues(alpha: 0.1),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  AppColors.warning),
+                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.warning),
                               minHeight: 6,
                             ),
                           ),
@@ -339,20 +306,52 @@ class _HomePageState extends State<HomePage> {
                           const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('0',
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 10)),
-                              Text('Safety: 42 / 100',
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 10)),
-                              Text('100',
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 10)),
+                              Text('0', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+                              Text('Safety: 42 / 100', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+                              Text('100', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Test Fake Call ────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: GestureDetector(
+                    onTap: () => context.push('/fake-call/incoming', extra: 'Police Control Room'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blueAccent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.call_outlined, color: Colors.blueAccent, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Fake Call Deterrent', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text('Simulate incoming call to deter attackers', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: AppColors.textSecondary.withValues(alpha: 0.38)),
                         ],
                       ),
                     ),
@@ -405,6 +404,47 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
+                const SizedBox(height: 16),
+
+                // ── System Diagnostics ────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: GestureDetector(
+                    onTap: () => context.push('/diagnostics'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.safe.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.safe.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.verified_user, color: AppColors.safe, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('System Diagnostics', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text('Verify all protection systems are armed', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: AppColors.textSecondary.withValues(alpha: 0.38)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: 24),
 
                 // ── Quick actions ─────────────────────────────────────
@@ -414,36 +454,23 @@ class _HomePageState extends State<HomePage> {
                 ),
 
                 const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
 
                 // ── Bottom Nav ────────────────────────────────────────
                 Divider(color: AppColors.textSecondary.withValues(alpha: 0.1), height: 1),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 14.0, horizontal: 24.0),
+                  padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 24.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _NavItem(
-                          icon: Icons.home_rounded,
-                          label: 'Home',
-                          isActive: true,
-                          onTap: () {}),
-                      _NavItem(
-                          icon: Icons.map_rounded,
-                          label: 'Map',
-                          onTap: () => context.push('/map')),
-                      _NavItem(
-                          icon: Icons.groups_rounded,
-                          label: 'Community',
-                          onTap: () => context.push('/community')),
-                      _NavItem(
-                          icon: Icons.folder_copy_rounded,
-                          label: 'Evidence',
-                          onTap: () => context.push('/evidence')),
-                      _NavItem(
-                          icon: Icons.settings_rounded,
-                          label: 'Settings',
-                          onTap: () => context.push('/settings')),
+                      _NavItem(icon: Icons.home_rounded, label: 'Home', isActive: true, onTap: () {}),
+                      _NavItem(icon: Icons.map_rounded, label: 'Map', onTap: () => context.push('/map')),
+                      _NavItem(icon: Icons.groups_rounded, label: 'Community', onTap: () => context.push('/community')),
+                      _NavItem(icon: Icons.folder_copy_rounded, label: 'Evidence', onTap: () => context.push('/evidence')),
+                      _NavItem(icon: Icons.settings_rounded, label: 'Settings', onTap: () => context.push('/settings')),
                     ],
                   ),
                 ),
@@ -463,12 +490,7 @@ class _NavItem extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.isActive = false,
-    required this.onTap,
-  });
+  const _NavItem({required this.icon, required this.label, this.isActive = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -477,33 +499,39 @@ class _NavItem extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: isActive ? AppColors.primary : AppColors.textSecondary,
-            size: 24,
-          ),
+          Icon(icon, color: isActive ? AppColors.primary : AppColors.textSecondary, size: 24),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              fontSize: 10,
-              fontWeight:
-                  isActive ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
+          Text(label, style: TextStyle(color: isActive ? AppColors.primary : AppColors.textSecondary, fontSize: 10, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
           const SizedBox(height: 2),
-          if (isActive)
-            Container(
-              width: 20,
-              height: 2,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
+          if (isActive) Container(width: 20, height: 2, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(1))),
         ],
       ),
+    );
+  }
+}
+
+class _StatusIndicator extends StatelessWidget {
+  final String label;
+  final bool isActive;
+
+  const _StatusIndicator({required this.label, required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8, height: 8,
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.safe : AppColors.textSecondary,
+            shape: BoxShape.circle,
+            boxShadow: isActive ? [BoxShadow(color: AppColors.safe.withValues(alpha: 0.5), blurRadius: 6, spreadRadius: 2)] : null,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(color: isActive ? AppColors.textPrimary : AppColors.textSecondary, fontSize: 11, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
+      ],
     );
   }
 }

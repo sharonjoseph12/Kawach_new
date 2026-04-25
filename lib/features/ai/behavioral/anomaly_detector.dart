@@ -150,11 +150,11 @@ class AnomalyDetector {
       // ignore: prefer_const_declarations
       final prompt = '''
 Analyze this kinematic scenario to validate a personal safety threat:
-Type: \${result.type.name}
-Base Confidence: \${result.confidence}
-Speed: \${result.location.speed} m/s
-Time: \${result.detectedAt}
-Area Safety Score (0-100, lower is worse): \$currentAreaSafetyScore
+Type: ${result.type.name}
+Base Confidence: ${result.confidence}
+Speed: ${result.location.speed} m/s
+Time: ${result.detectedAt}
+Area Safety Score (0-100, lower is worse): $currentAreaSafetyScore
 
 Is this a real emergency? Respond strictly with a JSON object:
 {"confirmed": true/false, "adjustedConfidence": 0.0-1.0}

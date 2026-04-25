@@ -29,8 +29,8 @@ class _FakeCallPageState extends State<FakeCallPage> {
         setState(() => _isScheduled = false);
         
         // Trigger realistic phone ringing vibration pattern
-        if (await Vibration.hasVibrator() ?? false) {
-          if (await Vibration.hasCustomVibrationsSupport() ?? false) {
+        if (await Vibration.hasVibrator()) {
+          if (await Vibration.hasCustomVibrationsSupport()) {
             Vibration.vibrate(pattern: [0, 1000, 1000, 1000, 1000, 1000], intensities: [0, 255, 0, 255, 0, 255]);
           } else {
             Vibration.vibrate();
@@ -146,3 +146,4 @@ class _FakeCallPageState extends State<FakeCallPage> {
     );
   }
 }
+

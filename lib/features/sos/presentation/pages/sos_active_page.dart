@@ -104,6 +104,38 @@ class _SosActivePageState extends State<SosActivePage>
     return '$m:$s';
   }
 
+  String _triggerTypeLabel(String type) {
+    switch (type) {
+      case 'manual': return 'Manual Button Press';
+      case 'hardware_volume_button': return 'Volume Button (Pocket SOS)';
+      case 'smartwatch_media': return 'Smartwatch Trigger';
+      case 'hard_fall': return 'Fall Detection';
+      case 'route_deviance': return 'Route Deviation Detected';
+      case 'ai_behavioral': return 'AI Guardian Alert';
+      case 'dead_battery': return 'Critical Battery Alert';
+      case 'wake_word': return 'Voice Activation';
+      case 'physical_hardware': return 'Physical Trigger';
+      case 'coercion_duress_pin': return 'Duress Alert';
+      default: return type.replaceAll('_', ' ').toUpperCase();
+    }
+  }
+
+  IconData _triggerTypeIcon(String type) {
+    switch (type) {
+      case 'manual': return Icons.touch_app;
+      case 'hardware_volume_button': return Icons.volume_down;
+      case 'smartwatch_media': return Icons.watch;
+      case 'hard_fall': return Icons.trending_down;
+      case 'route_deviance': return Icons.wrong_location;
+      case 'ai_behavioral': return Icons.psychology;
+      case 'dead_battery': return Icons.battery_alert;
+      case 'wake_word': return Icons.mic;
+      case 'physical_hardware': return Icons.phonelink_ring;
+      case 'coercion_duress_pin': return Icons.warning_amber;
+      default: return Icons.info_outline;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<SosBloc, SosState>(
@@ -215,6 +247,14 @@ class _SosActivePageState extends State<SosActivePage>
                               value:
                                   '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
                               iconColor: AppColors.danger,
+                            ),
+                          const SizedBox(height: 16),
+                          if (alert?.triggerType != null)
+                            _InfoTile(
+                              icon: _triggerTypeIcon(alert!.triggerType!),
+                              label: 'TRIGGER METHOD',
+                              value: _triggerTypeLabel(alert.triggerType!),
+                              iconColor: AppColors.warning,
                             ),
                           const SizedBox(height: 16),
                           _InfoTile(
@@ -382,7 +422,7 @@ class _SosActivePageState extends State<SosActivePage>
                           );
                           
                           if (result == 'cancel' && context.mounted) {
-                            if (await Vibration.hasVibrator() ?? false) {
+                            if (await Vibration.hasVibrator()) {
                               Vibration.vibrate(duration: 200);
                             }
                             if (!context.mounted) return;
@@ -669,3 +709,4 @@ class _CancelSOSButtonState extends State<_CancelSOSButton>
     );
   }
 }
+

@@ -73,6 +73,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (confirm != true || !mounted) return;
     setState(() => _signingOut = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('profile_setup_done');
     await Supabase.instance.client.auth.signOut();
     if (mounted) context.go('/phone');
   }

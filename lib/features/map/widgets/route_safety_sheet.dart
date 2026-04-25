@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kawach/core/theme/app_colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Bottom sheet that checks route safety before the user starts walking.
 /// Uses the heatmap data via Supabase to scan for risk zones along the route.
@@ -121,6 +122,31 @@ class _RouteSafetySheetState extends State<RouteSafetySheet> {
                   ]),
                   const SizedBox(height: 10),
                   Text(_result!.recommendation, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final dest = Uri.encodeComponent(_result!.destination);
+                        // Try native Google Maps intent first
+                        final nativeUrl = Uri.parse('google.navigation:q=$dest&mode=w');
+                        final webUrl = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$dest&travelmode=walking');
+                        
+                        if (await canLaunchUrl(nativeUrl)) {
+                          await launchUrl(nativeUrl);
+                        } else if (await canLaunchUrl(webUrl)) {
+                          await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      icon: const Icon(Icons.directions, color: Colors.white),
+                      label: const Text('Start Navigation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.safe,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

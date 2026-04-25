@@ -26,60 +26,68 @@ class AppRouter {
   AppRouter._();
 
   static final router = GoRouter(
-    initialLocation: '/phone',
+    // Start at '/' — the redirect logic decides where to go
+    initialLocation: '/',
     debugLogDiagnostics: false,
     redirect: (context, state) async {
       final location = state.matchedLocation;
 
-      // Auth-free routes — never redirect
-      if (location == '/onboarding' ||
-          location == '/phone' ||
-          location.startsWith('/otp')) {
-        return null;
+      final prefs = getIt<SharedPreferences>();
+
+      // ── Step 1: Check onboarding ────────────────────────────────────
+      final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
+      if (!onboardingDone) {
+        // Allow staying on onboarding page
+        if (location == '/onboarding') return null;
+        return '/onboarding';
       }
 
-      final prefs = getIt<SharedPreferences>();
-      final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
-      if (!onboardingDone) return '/onboarding';
+      // ── Step 2: Check authentication ─────────────────────────────────
+      // Use currentUser (persisted by Supabase SDK across app restarts)
+      // Do NOT check session.isExpired — Supabase auto-refreshes tokens
+      final user = Supabase.instance.client.auth.currentUser;
+      final isLoggedIn = user != null;
 
-      // If user is authenticated, send directly to home from /phone
-      final session = Supabase.instance.client.auth.currentSession;
-      final isLoggedIn = session != null && session.isExpired == false;
-
-      if (!isLoggedIn && location != '/phone' && location != '/' && !location.startsWith('/otp')) {
+      // Not logged in → force to /phone (but allow /otp too)
+      if (!isLoggedIn) {
+        if (location == '/phone' || location.startsWith('/otp')) return null;
         return '/phone';
       }
-      if (!isLoggedIn && location == '/') return '/phone';
 
-      // Persistent State Resurrection: Force to Active SOS if running
-      if (isLoggedIn) {
+      // ── Step 3: Logged in — redirect away from auth pages ───────────
+      if (location == '/phone' || location.startsWith('/otp')) {
+        return '/';
+      }
+
+      // ── Step 4: SOS state resurrection ──────────────────────────────
+      try {
         if (getIt<SosBloc>().state is SosActive && location != '/sos_active') {
           return '/sos_active';
         }
-        if (location == '/phone') return '/';
+      } catch (_) {}
 
-        // First-time profile setup: redirect once if name not set
+      // ── Step 5: First-time profile setup ────────────────────────────
+      if (location != '/profile') {
         final profileDone = prefs.getBool('profile_setup_done') ?? false;
-        if (!profileDone && location != '/profile') {
-          // Non-blocking: check Supabase in background, set flag on first successful name
-          final uid = Supabase.instance.client.auth.currentUser?.id;
-          if (uid != null) {
-            try {
-              final res = await Supabase.instance.client
-                  .from('users_profiles')
-                  .select('full_name')
-                  .eq('id', uid)
-                  .maybeSingle();
-              final name = res?['full_name'] as String?;
-              if (name == null || name.trim().isEmpty) {
-                return '/profile';
-              } else {
-                await prefs.setBool('profile_setup_done', true);
-              }
-            } catch (_) {}
+        if (!profileDone) {
+          try {
+            final res = await Supabase.instance.client
+                .from('users_profiles')
+                .select('full_name')
+                .eq('id', user.id)
+                .maybeSingle();
+            final name = res?['full_name'] as String?;
+            if (name == null || name.trim().isEmpty) {
+              return '/profile';
+            } else {
+              await prefs.setBool('profile_setup_done', true);
+            }
+          } catch (_) {
+            // Network error — don't block the user, let them in
           }
         }
       }
+
       return null;
     },
     routes: [
@@ -94,7 +102,11 @@ class AppRouter {
       GoRoute(
         path: '/otp',
         builder: (context, state) {
-          final phone = state.extra as String;
+          final phone = state.extra as String? ?? '';
+          if (phone.isEmpty) {
+            // Safety: shouldn't happen, but don't crash — show phone page
+            return const PhoneInputPage();
+          }
           return OTPPage(phone: phone);
         },
       ),

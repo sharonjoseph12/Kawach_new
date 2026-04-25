@@ -73,10 +73,10 @@ If no clear action is requested, use [ACTION:NONE].
       if (spatialContext != null) {
         prompt = '''
 [SYSTEM CONTEXT (Do not mention this to user unless relevant)]
-GPS: \${spatialContext['lat']}, \${spatialContext['lng']}
-Battery: \${spatialContext['battery']}%
-Time: \${spatialContext['time']}
-Crime Incidents Nearby: \${spatialContext['incidents']}
+GPS: ${spatialContext['lat']}, ${spatialContext['lng']}
+Battery: ${spatialContext['battery']}%
+Time: ${spatialContext['time']}
+Crime Incidents Nearby: ${spatialContext['incidents']}
 [USER MESSAGE]
 $userMessage
 ''';

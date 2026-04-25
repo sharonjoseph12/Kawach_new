@@ -29,7 +29,7 @@ class _SosHistoryPageState extends State<SosHistoryPage> {
           .from('sos_alerts')
           .select()
           .eq('user_id', uid)
-          .order('triggered_at', ascending: false)
+          .order('created_at', ascending: false)
           .limit(50);
       if (mounted) setState(() { _alerts = List<Map<String, dynamic>>.from(res); _loading = false; });
     } catch (_) {
@@ -103,7 +103,7 @@ class _SosHistoryPageState extends State<SosHistoryPage> {
       itemBuilder: (ctx, i) {
         final alert = _alerts[i];
         final status = alert['status'] as String?;
-        final triggeredAt = alert['triggered_at'] as String?;
+        final triggeredAt = alert['created_at'] as String?;
         final lat = alert['latitude'];
         final lng = alert['longitude'];
         final isMesh = alert['is_offline_mesh_alert'] as bool? ?? false;

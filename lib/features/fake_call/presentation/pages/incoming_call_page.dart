@@ -28,7 +28,7 @@ class _IncomingCallPageState extends State<IncomingCallPage> {
 
   Future<void> _startRinging() async {
     // Vibrate: Ring pattern
-    if (await Vibration.hasVibrator() ?? false) {
+    if (await Vibration.hasVibrator()) {
       _vibrateTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) {
         Vibration.vibrate(pattern: [0, 1000, 1000]);
       });
@@ -220,3 +220,4 @@ class _IncomingCallPageState extends State<IncomingCallPage> {
     );
   }
 }
+
