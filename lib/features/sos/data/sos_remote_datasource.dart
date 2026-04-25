@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:telephony/telephony.dart';
@@ -59,7 +60,7 @@ class SosRemoteDataSourceImpl implements SosRemoteDataSource {
       });
     } catch (e) {
       // Proceed even if notification fails, the alert is still active
-      print('Failed to notify guardians via edge function: $e');
+      debugPrint('Failed to notify guardians via edge function: $e');
     }
 
     // HACKATHON FIX: Native local SMS fallback to guarantee messages are sent
@@ -68,22 +69,27 @@ class SosRemoteDataSourceImpl implements SosRemoteDataSource {
       final telephony = Telephony.instance;
       bool permissionsGranted = await Permission.sms.isGranted;
       
+      if (!permissionsGranted) {
+        final status = await Permission.sms.request();
+        permissionsGranted = status.isGranted;
+      }
+      
       if (permissionsGranted) {
         String googleMapsLink = "https://maps.google.com/?q=$lat,$lng";
-        String message = "SOS! I am in danger. My battery is $battery%. Location: $googleMapsLink";
+        String message = "KAWACH SOS! I am in danger. My battery is $battery%. Location: $googleMapsLink";
         
         for (var g in guardianData) {
           final phone = g['contact_phone'] as String?;
           if (phone != null && phone.isNotEmpty) {
             await telephony.sendSms(to: phone, message: message);
-            print('KAWACH: Sent native SMS to $phone');
+            debugPrint('KAWACH: Sent native SMS to $phone');
           }
         }
       } else {
-        print('KAWACH: SMS permission not granted, skipping native SMS');
+        debugPrint('KAWACH: SMS permission denied, skipping native SMS');
       }
     } catch (e) {
-      print('KAWACH: Native SMS send failed - $e');
+      debugPrint('KAWACH: Native SMS send failed - $e');
     }
 
     return SosAlert.fromJson(response);

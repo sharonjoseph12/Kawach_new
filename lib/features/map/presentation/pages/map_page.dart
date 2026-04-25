@@ -21,8 +21,8 @@ class _MapPageState extends State<MapPage> {
   Set<Circle> _circles = {};
   Set<Marker> _markers = {};
   
-  bool _showIncidents = true;
-  bool _showHeatmap = true;
+  final bool _showIncidents = true;
+  final bool _showHeatmap = true;
   MapType _currentMapType = MapType.normal;
 
   static List<Map<String, dynamic>>? _cachedIncidents;

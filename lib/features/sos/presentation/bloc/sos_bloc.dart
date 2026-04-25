@@ -13,6 +13,7 @@ import 'package:kawach/features/fallback/sms_fallback_service.dart';
 import 'sos_event.dart';
 import 'sos_state.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:kawach/features/guardians/data/guardian_repository.dart';
 
 @injectable
 class SosBloc extends HydratedBloc<SosEvent, SosState> {
@@ -21,11 +22,12 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
   final SosRepository _repository;
   final EvidenceUploadService _evidenceUploadService;
   final SmsFallbackService _smsFallbackService;
+  final GuardianRepository _guardianRepository;
   final Battery _battery = Battery();
   StreamSubscription? _locationSubscription;
   StreamSubscription? _activeSosSubscription;
 
-  SosBloc(this._repository, this._evidenceUploadService, this._smsFallbackService) : super(SosInitial()) {
+  SosBloc(this._repository, this._evidenceUploadService, this._smsFallbackService, this._guardianRepository) : super(SosInitial()) {
     on<SosTriggerPressed>((event, emit) async {
       emit(SosTriggering());
       
@@ -96,17 +98,18 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
       if (state is SosActive) {
         final alertId = (state as SosActive).alert.id;
         emit(SosCancelling());
-        final result = await _repository.cancelSOS(alertId, event.reason);
-        result.fold(
-          (failure) => emit(SosError(failure.message)),
-          (_) {
-            _pinningChannel.invokeMethod('unpinScreen');
-            WakelockPlus.disable();
-            _stopTracking();
-            EvidenceAudioPipeline().stopContinuousRecording();
-            emit(SosResolved());
-          },
-        );
+        try {
+          await _repository.cancelSOS(alertId, event.reason).timeout(
+            const Duration(seconds: 5),
+          );
+        } catch (_) {
+          // Offline or timeout — still resolve locally
+        }
+        _pinningChannel.invokeMethod('unpinScreen');
+        WakelockPlus.disable();
+        _stopTracking();
+        EvidenceAudioPipeline().stopContinuousRecording();
+        emit(SosResolved());
       }
     });
 
@@ -123,20 +126,11 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
     });
   }
 
-  /// Fetches real guardian phone numbers from Supabase for offline SMS fallback.
+  /// Fetches real guardian phone numbers using the repository (supports local cache).
   Future<List<String>> _fetchGuardianPhones() async {
     try {
-      final uid = Supabase.instance.client.auth.currentUser?.id;
-      if (uid == null) return [];
-      final res = await Supabase.instance.client
-          .from('guardians')
-          .select('contact_phone')
-          .eq('user_id', uid)
-          .not('contact_phone', 'is', null);
-      return (res as List)
-          .map((g) => g['contact_phone'] as String)
-          .where((p) => p.isNotEmpty)
-          .toList();
+      final guardians = await _guardianRepository.fetchGuardians();
+      return guardians.map((g) => g.contactPhone).where((p) => p.isNotEmpty).toList();
     } catch (_) {
       return [];
     }

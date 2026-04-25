@@ -26,6 +26,8 @@ import 'package:kawach/core/widgets/app_error_boundary.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:kawach/features/sos/data/smartwatch_media_interceptor.dart';
 import 'package:kawach/features/sos/data/hardware_button_interceptor.dart';
+import 'package:kawach/features/mesh/nearby_mesh_service.dart';
+import 'package:kawach/features/guardians/data/guardian_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -142,6 +144,17 @@ void main() async {
   await _requestAllPermissions();
   debugPrint('KAWACH: Permissions requested');
 
+  // Initialize Offline Mesh Relay
+  try {
+    final bool isMeshRelayEnabled = prefs.getBool('mesh_relay') ?? true;
+    if (isMeshRelayEnabled) {
+      await getIt<NearbyMeshService>().startScanning();
+      debugPrint('KAWACH: NearbyMeshService Relay Active');
+    }
+  } catch (e) {
+    debugPrint('KAWACH: NearbyMeshService init failed — $e');
+  }
+
   // Flutter Error Boundary
   FlutterError.onError = (details) {
     debugPrint('KAWACH ERROR: ${details.exception}');
@@ -149,6 +162,16 @@ void main() async {
       getIt<LoggerService>().error('Flutter Error', details.exception, details.stack);
     }
   };
+
+  // Warm up guardian cache for offline SMS fallback
+  try {
+    if (getIt.isRegistered<GuardianRepository>()) {
+      getIt<GuardianRepository>().fetchGuardians();
+      debugPrint('KAWACH: Guardian cache warm-up started');
+    }
+  } catch (e) {
+    debugPrint('KAWACH: Guardian warm-up failed — $e');
+  }
 
   // Initialize Sentry (non-blocking — skip if no DSN)
   if (config.sentryDsn.isNotEmpty) {

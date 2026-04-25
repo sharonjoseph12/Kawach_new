@@ -9,7 +9,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -261,44 +260,51 @@ void onStart(ServiceInstance service) async {
       }
     });
 
-    // ── BLE Offline Mesh Relay Node ──────────────────────────────────────────
-    Timer.periodic(const Duration(minutes: 2), (timer) async {
+    // ── AI Anomaly Detection (Gemini) ──────────────────────────────────────────
+    Timer.periodic(const Duration(minutes: 5), (timer) async {
       try {
-        final netResult = await connectivity.checkConnectivity();
-        if (netResult.contains(ConnectivityResult.none)) return; // We need internet to act as a relay
+        final batteryLevel = await battery.batteryLevel;
+        Position? pos;
+        try { pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).timeout(const Duration(seconds: 5)); } catch (_) {}
+        
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        final apiKey = dotenv.env['GEMINI_API_KEY'] ?? const String.fromEnvironment('GEMINI_API_KEY');
+        
+        if (uid != null && apiKey.isNotEmpty) {
+          final model = GenerativeModel(
+            model: 'gemini-1.5-flash',
+            apiKey: apiKey,
+          );
+          
+          final prompt = '''
+Analyze this ambient user data for anomalies:
+Location: ${pos?.latitude}, ${pos?.longitude}
+Battery: $batteryLevel%
+Time: ${DateTime.now().toIso8601String()}
 
-        bool isBleOn = await FlutterBluePlus.adapterState.first == BluetoothAdapterState.on;
-        if (!isBleOn) return;
-
-        // Perform a quick 5-second background scan for other Kawach devices transmitting SOS
-        await FlutterBluePlus.startScan(
-          withServices: [Guid("0000181A-0000-1000-8000-00805f9b34fb")], // Mock Mesh Service UUID
-          timeout: const Duration(seconds: 5),
-        );
-
-        FlutterBluePlus.scanResults.listen((results) async {
-          for (ScanResult r in results) {
-            final mfgData = r.advertisementData.manufacturerData;
-            if (mfgData.isNotEmpty) {
-              // Extract SOS payload from Manufacturer Data (God-mode MVP)
-              // In production, decrypt packet -> Upload to Supabase -> Notify cloud
-              await flutterLocalNotificationsPlugin.show(
-                890,
-                'Kawach Mesh Relay',
-                'Relayed an offline SOS from a nearby user.',
-                const NotificationDetails(
-                  android: AndroidNotificationDetails(
-                    'kawach_mesh', 'Mesh Network Events',
-                    importance: Importance.defaultImportance, priority: Priority.defaultPriority,
-                    icon: '@mipmap/ic_launcher',
-                  ),
-                ),
-              );
-            }
+If the user is in extreme danger based on patterns, return [TRIGGER_SOS]. Otherwise return [SAFE].
+''';
+          final response = await model.generateContent([Content.text(prompt)]);
+          if (response.text?.contains('[TRIGGER_SOS]') == true) {
+             // trigger SOS
+             await _insertBackgroundSos(
+              uid: uid,
+              lat: pos?.latitude ?? 0.0,
+              lng: pos?.longitude ?? 0.0,
+              batteryLevel: batteryLevel,
+              triggerType: 'ai_behavioral',
+              origin: 'background_isolate',
+            );
+            await flutterLocalNotificationsPlugin.show(
+              892,
+              'KAWACH: AI Guardian Alert!',
+              'AI detected anomalous behavioral patterns. SOS triggered.',
+              const NotificationDetails(android: AndroidNotificationDetails('kawach_alerts', 'High Priority Alerts', importance: Importance.max, priority: Priority.high, color: Colors.red)),
+            );
           }
-        });
+        }
       } catch (e, st) {
-        await Sentry.captureException(e, stackTrace: st, hint: Hint.withMap({'context': 'mesh_relay'}));
+        await Sentry.captureException(e, stackTrace: st, hint: Hint.withMap({'context': 'ai_anomaly_detection'}));
       }
     });
 

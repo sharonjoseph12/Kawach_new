@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Background service to continuously listen for the "KAWACH HELP" distress phrase.
 class WakeWordService {
@@ -15,6 +16,13 @@ class WakeWordService {
   /// Initializes the speech engine and asks for microphone permissions.
   Future<bool> initialize() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('audio_detection') ?? true;
+      if (!enabled) {
+        debugPrint('🎤 [WAKE-WORD] Audio detection is disabled in settings.');
+        return false;
+      }
+
       bool available = await _speechToText.initialize(
         onStatus: (status) {
           debugPrint('🎤 [WAKE-WORD] Status -> $status');
@@ -40,6 +48,10 @@ class WakeWordService {
   Future<void> startListening({
     required VoidCallback onWakeWordDetected,
   }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('audio_detection') ?? true;
+    if (!enabled) return;
+
     if (_isListening || !_speechToText.isAvailable) return;
 
     _onWakeWordDetected = onWakeWordDetected;

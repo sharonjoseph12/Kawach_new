@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
-import 'package:talker_flutter/talker_flutter.dart';
-import 'package:kawach/app/di/injection.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nearby_connections/nearby_connections.dart';
+import 'package:telephony/telephony.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'mesh_message.dart';
 import 'dedup_cache.dart';
 
@@ -29,7 +30,6 @@ class NearbyMeshService {
         "KawachNode",
         strategy,
         onConnectionInitiated: (String id, ConnectionInfo info) async {
-          // Auto-accept all connections for offline relay
           await Nearby().acceptConnection(
             id,
             onPayLoadRecieved: (endpointId, payload) {
@@ -40,7 +40,6 @@ class NearbyMeshService {
             onPayloadTransferUpdate: (endpointId, payloadTransferUpdate) {},
           );
           
-          // Once connected, immediately send the SOS payload
           await Nearby().sendBytesPayload(id, Uint8List.fromList(utf8.encode(jsonStr)));
         },
         onConnectionResult: (String id, Status status) {},
@@ -48,10 +47,10 @@ class NearbyMeshService {
         serviceId: serviceId,
       );
       
-      getIt<Talker>().info('NearbyMeshService: Started advertising');
+      debugPrint('KAWACH MESH: Started advertising');
       return advertising;
     } catch (e) {
-      getIt<Talker>().error('NearbyMeshService: Failed to start advertising', e);
+      debugPrint('KAWACH MESH: Failed to start advertising: $e');
       return false;
     }
   }
@@ -66,7 +65,6 @@ class NearbyMeshService {
         "KawachNode",
         strategy,
         onEndpointFound: (String id, String userName, String serviceId) async {
-          // Found a Kawach node in distress, connect to receive payload
           await Nearby().requestConnection(
             "RelayNode",
             id,
@@ -89,10 +87,10 @@ class NearbyMeshService {
         serviceId: serviceId,
       );
       
-      getIt<Talker>().info('NearbyMeshService: Started discovery');
+      debugPrint('KAWACH MESH: Started discovery');
       return discovering;
     } catch (e) {
-      getIt<Talker>().error('NearbyMeshService: Failed to start discovery', e);
+      debugPrint('KAWACH MESH: Failed to start discovery: $e');
       return false;
     }
   }
@@ -118,7 +116,7 @@ class NearbyMeshService {
         _relayMessageToCloud(msg);
       }
     } catch (e) {
-      getIt<Talker>().error('NearbyMeshService: Failed to decode mesh data', e);
+      debugPrint('KAWACH MESH: Failed to decode mesh data: $e');
     }
   }
 
@@ -128,7 +126,6 @@ class NearbyMeshService {
       final hasInternet = !connectivityResult.contains(ConnectivityResult.none);
       
       if (hasInternet) {
-        // Parse coordinates from payload format: "lat:X,lng:Y,bat:Z"
         double lat = 0.0;
         double lng = 0.0;
         int battery = 0;
@@ -154,10 +151,35 @@ class NearbyMeshService {
           'origin': 'mesh_relay',
           'created_at': DateTime.now().toIso8601String(),
         });
-        getIt<Talker>().info('NearbyMeshService: Successfully relayed offline SOS to cloud for user ${msg.originUserId}');
+        debugPrint('KAWACH MESH: Relayed offline SOS to cloud for ${msg.originUserId}');
+
+        try {
+          final guardianData = await Supabase.instance.client
+              .from('guardians')
+              .select('contact_phone')
+              .eq('user_id', msg.originUserId);
+              
+          final telephony = Telephony.instance;
+          bool permissionsGranted = await Permission.sms.isGranted;
+          
+          if (permissionsGranted) {
+            String googleMapsLink = "https://maps.google.com/?q=$lat,$lng";
+            String message = "KAWACH MESH RELAY: An offline user nearby is in danger! Battery $battery%. Location: $googleMapsLink";
+            
+            for (var g in guardianData) {
+              final phone = g['contact_phone'] as String?;
+              if (phone != null && phone.isNotEmpty) {
+                await telephony.sendSms(to: phone, message: message);
+                debugPrint('KAWACH MESH: Bridged SMS to guardian $phone');
+              }
+            }
+          }
+        } catch (smsError) {
+          debugPrint('KAWACH MESH: Failed to bridge SMS: $smsError');
+        }
       }
     } catch (e) {
-      getIt<Talker>().error('NearbyMeshService: Failed to relay SOS to cloud', e);
+      debugPrint('KAWACH MESH: Failed to relay SOS to cloud: $e');
     }
   }
 }

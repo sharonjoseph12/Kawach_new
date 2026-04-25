@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ShakeDetector {
   static const double _threshold = 22.0; // m/s²
@@ -14,11 +15,19 @@ class ShakeDetector {
   DateTime? _thresholdHitAt;
   DateTime? _lastTrigger;
   bool _active = false;
+  bool _enabled = true;
 
   ShakeDetector({required this.onShakeDetected});
 
-  void start() {
+  Future<void> _loadConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    _enabled = prefs.getBool('shake_detection') ?? true;
+  }
+
+  Future<void> start() async {
     if (_active) return;
+    await _loadConfig();
+    if (!_enabled) return;
     _active = true;
     _subscription = accelerometerEventStream(
       samplingPeriod: const Duration(milliseconds: 50),

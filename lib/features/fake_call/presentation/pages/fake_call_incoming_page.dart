@@ -14,7 +14,7 @@ class FakeCallIncomingPage extends StatefulWidget {
   State<FakeCallIncomingPage> createState() => _FakeCallIncomingPageState();
 }
 
-class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
+class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> with SingleTickerProviderStateMixin {
   bool _isAnswered = false;
   int _callDurationSeconds = 0;
   Timer? _callTimer;
@@ -22,10 +22,12 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
   // Simulate ringing timer so that if they don't answer in 30s it "misses"
   Timer? _ringTimer;
   final FlutterTts _flutterTts = FlutterTts();
+  late AnimationController _pulseCtrl;
 
   @override
   void initState() {
     super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
     _ringTimer = Timer(const Duration(seconds: 40), () {
       if (!_isAnswered && mounted) {
         context.pop();
@@ -49,6 +51,7 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
   void _answerCall() async {
     Vibration.cancel();
     _ringTimer?.cancel();
+    _pulseCtrl.stop();
     setState(() => _isAnswered = true);
     
     // Start duration timer
@@ -77,6 +80,7 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
     _flutterTts.stop();
     _callTimer?.cancel();
     _ringTimer?.cancel();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -98,6 +102,44 @@ class _FakeCallIncomingPageState extends State<FakeCallIncomingPage> {
             // Caller Info
             Column(
               children: [
+                if (!_isAnswered) ...[
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulseCtrl,
+                        builder: (ctx, child) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: List.generate(3, (i) {
+                              final delay = i * 0.33;
+                              var val = (_pulseCtrl.value - delay) % 1.0;
+                              if (val < 0) val += 1.0;
+                              return Container(
+                                width: 100 + (val * 150),
+                                height: 100 + (val * 150),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.5 * (1 - val)),
+                                    width: 2,
+                                  ),
+                                  color: Colors.white.withValues(alpha: 0.1 * (1 - val)),
+                                ),
+                              );
+                            }),
+                          );
+                        },
+                      ),
+                      Container(
+                        width: 100, height: 100,
+                        decoration: BoxDecoration(color: Colors.grey.shade800, shape: BoxShape.circle),
+                        child: const Icon(Icons.person, size: 60, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                ],
                 Text(
                   _isAnswered ? _formatDuration(_callDurationSeconds) : 'mobile',
                   style: const TextStyle(color: Colors.white70, fontSize: 18),

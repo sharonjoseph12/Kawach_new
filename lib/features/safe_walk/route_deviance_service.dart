@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:dio/dio.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:injectable/injectable.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -32,7 +33,6 @@ class RouteDevianceService {
     if (!_isTracking || _currentRoute.isEmpty) return false;
 
     double minDistance = double.infinity;
-    const distanceCalc = Distance();
 
     for (int i = 0; i < _currentRoute.length - 1; i++) {
       final p1 = _currentRoute[i];
@@ -45,7 +45,9 @@ class RouteDevianceService {
 
     // If polyline points are sparse, just checking nearest point is a fallback
     for (final point in _currentRoute) {
-      final dist = distanceCalc.distance(currentLocation, point);
+      final dist = Geolocator.distanceBetween(
+        currentLocation.latitude, currentLocation.longitude,
+        point.latitude, point.longitude);
       if (dist < minDistance) {
         minDistance = dist;
       }
