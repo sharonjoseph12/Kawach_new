@@ -50,6 +50,7 @@ class _SOSButtonState extends State<SOSButton>
   }
 
   Future<void> _triggerSOS() async {
+    debugPrint('KAWACH UI: SOS Button Triggered!');
     HapticFeedback.heavyImpact();
     if (await Vibration.hasVibrator()) {
       Vibration.vibrate(
@@ -57,7 +58,9 @@ class _SOSButtonState extends State<SOSButton>
           intensities: [0, 255, 0, 200, 0, 255]);
     }
 
+    debugPrint('KAWACH UI: Checking connectivity...');
     final online = await hasConnectivity();
+    debugPrint('KAWACH UI: Online status = $online');
     if (!online && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('⚠️ Offline: Alerting nearby devices via BLE Mesh.'),
@@ -86,7 +89,9 @@ class _SOSButtonState extends State<SOSButton>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: () => debugPrint('KAWACH: SOS button tapped, but user must HOLD it for 2s!'),
       onLongPressStart: (_) {
+        debugPrint('KAWACH UI: SOS Button Long Press Started');
         HapticFeedback.mediumImpact();
         setState(() => _isHolding = true);
         _holdController.forward();

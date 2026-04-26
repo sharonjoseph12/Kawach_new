@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -201,305 +202,317 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         child: Scaffold(
           backgroundColor: AppColors.background,
           body: Container(
-          color: AppColors.background,
-          child: SafeArea(
-            child: Stack(
-              children: [
-                Column(
-              children: [
-                // ── Top bar ──────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  child: Row(
+            color: AppColors.background,
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
                     children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [AppColors.primary.withValues(alpha: 0.8), AppColors.secondary],
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _userName.isNotEmpty ? _userName[0].toUpperCase() : '?',
-                            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_greeting(), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                          Text(_userName, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 17)),
-                        ],
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.health_and_safety, color: AppColors.safe),
-                        onPressed: () => context.push('/diagnostics'),
-                      ),
-                      _AnimatedRiskBadge(riskLevel: _safetyScore?.riskLevel ?? 'moderate'),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      children: [
-                        // ── Active Protection Dashboard ──────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.safe.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                      // ── Top bar ──────────────────────────────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                        child: Row(
                           children: [
-                            Text('ACTIVE PROTECTION', style: GoogleFonts.orbitron(fontSize: 10, letterSpacing: 1.5, color: AppColors.textSecondary)),
-                            const Spacer(),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              width: 44,
+                              height: 44,
                               decoration: BoxDecoration(
-                                color: AppColors.safe.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [AppColors.primary.withValues(alpha: 0.8), AppColors.secondary],
+                                ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6, height: 6,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.safe,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [BoxShadow(color: AppColors.safe.withValues(alpha: 0.5), blurRadius: 4)],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text('ALL SYSTEMS', style: GoogleFonts.orbitron(fontSize: 8, color: AppColors.safe, letterSpacing: 1)),
-                                ],
+                              child: Center(
+                                child: Text(
+                                  _userName.isNotEmpty ? _userName[0].toUpperCase() : '?',
+                                  style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_greeting(), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                                Text(_userName, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 17)),
+                              ],
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.health_and_safety, color: AppColors.safe),
+                              onPressed: () => context.push('/diagnostics'),
+                            ),
+                            _AnimatedRiskBadge(riskLevel: _safetyScore?.riskLevel ?? 'moderate'),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _PulsingStatusIndicator(label: 'AI Guardian', isActive: _aiGuardianActive),
-                            _PulsingStatusIndicator(label: 'Mesh Node', isActive: _meshActive),
-                            _PulsingStatusIndicator(label: 'GPS Lock', isActive: _gpsActive),
+                      ),
+
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            children: [
+                              // ── Active Protection Dashboard ──────────────────────────
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.card,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppColors.safe.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text('ACTIVE PROTECTION', style: GoogleFonts.orbitron(fontSize: 10, letterSpacing: 1.5, color: AppColors.textSecondary)),
+                                          const Spacer(),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.safe.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 6, height: 6,
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.safe,
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [BoxShadow(color: AppColors.safe.withValues(alpha: 0.5), blurRadius: 4)],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text('ALL SYSTEMS', style: GoogleFonts.orbitron(fontSize: 8, color: AppColors.safe, letterSpacing: 1)),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          _PulsingStatusIndicator(label: 'AI Guardian', isActive: _aiGuardianActive),
+                                          _PulsingStatusIndicator(label: 'Mesh Node', isActive: _meshActive),
+                                          _PulsingStatusIndicator(label: 'GPS Lock', isActive: _gpsActive),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // ── Battery warning (< 15%) ───────────────────────────
+                              if (_batteryLevel < 15)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.danger.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.battery_alert, color: AppColors.danger, size: 18),
+                                        const SizedBox(width: 10),
+                                        Expanded(child: Text('Battery at $_batteryLevel% — SOS may fail if phone dies', style: const TextStyle(color: AppColors.danger, fontSize: 12))),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 32),
+
+                              // ── SOS Button ────────────────────────────────────────
+                              BlocBuilder<SosBloc, SosState>(
+                                builder: (context, state) {
+                                  final isActive = state is SosTriggering;
+                                  return Column(
+                                    children: [
+                                      SOSButton(
+                                        onTrigger: () {
+                                          context.read<SosBloc>().add(const SosTriggerPressed('manual'));
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (isActive)
+                                        Shimmer.fromColors(
+                                          baseColor: AppColors.danger,
+                                          highlightColor: Colors.white,
+                                          child: Text('TRIGGERING SOS...', style: GoogleFonts.orbitron(fontSize: 12, letterSpacing: 2)),
+                                        )
+                                      else
+                                        Text('PROTECTED BY KAWACH', style: GoogleFonts.orbitron(fontSize: 10, color: AppColors.textSecondary, letterSpacing: 2)),
+                                    ],
+                                  );
+                                },
+                              ),
+
+                              const SizedBox(height: 24),
+                              
+                              // ── Quick Stats ──────────────────────────────────────────
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 40),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _StatCounter(label: 'SOS Events', value: _sosCount),
+                                    Container(width: 1, height: 24, color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                                    _StatCounter(label: 'Evidence', value: _evidenceCount),
+                                    Container(width: 1, height: 24, color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                                    _StatCounter(label: 'Guardians', value: _guardianCount),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // ── Live Area Safety Card ──────────────────────────────
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                                child: GestureDetector(
+                                  onTap: () => context.push('/map'),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.card,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: _riskColor().withValues(alpha: 0.2), width: 1),
+                                    ),
+                                    child: _scoreLoading
+                                        ? _buildScoreLoading()
+                                        : _buildLiveScore(),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // ── Fake Call ────────────────────────────────────
+                              _FeatureCard(
+                                icon: Icons.call_outlined,
+                                iconColor: Colors.blueAccent,
+                                title: 'Fake Call Deterrent',
+                                subtitle: 'Simulate incoming call to deter attackers',
+                                onTap: () => context.push('/fake-call/incoming', extra: 'Police Control Room'),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // ── Guardian AI ────────────────────────────────────
+                              _FeatureCard(
+                                icon: Icons.smart_toy_rounded,
+                                iconColor: AppColors.primary,
+                                title: 'Guardian AI',
+                                subtitle: 'Chat with your 24/7 AI safety assistant',
+                                onTap: () => context.push('/guardian-ai'),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // ── Route Safety Check ────────────────────────────────────
+                              _FeatureCard(
+                                icon: Icons.route,
+                                iconColor: AppColors.safe,
+                                title: 'Route Safety Check',
+                                subtitle: 'Scan your route for risk zones before walking',
+                                onTap: () => showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => const RouteSafetySheet(),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // ── System Diagnostics ────────────────────────────────────
+                              _FeatureCard(
+                                icon: Icons.verified_user,
+                                iconColor: AppColors.safe,
+                                title: 'System Diagnostics',
+                                subtitle: 'Verify all protection systems are armed',
+                                onTap: () => context.push('/diagnostics'),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // ── Quick actions ─────────────────────────────────────
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 24.0),
+                                child: QuickActionsBar(),
+                              ),
+
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // ── Bottom Nav ────────────────────────────────────────
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          border: Border(top: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.08))),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, -2)),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ── Battery warning (< 15%) ───────────────────────────
-                if (_batteryLevel < 15)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.danger.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.battery_alert, color: AppColors.danger, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(child: Text('Battery at $_batteryLevel% — SOS may fail if phone dies', style: const TextStyle(color: AppColors.danger, fontSize: 12))),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                const SizedBox(height: 32),
-
-                // ── SOS Button ────────────────────────────────────────
-                BlocBuilder<SosBloc, SosState>(
-                  builder: (context, state) {
-                    final isActive = state is SosTriggering;
-                    return Column(
-                      children: [
-                        SOSButton(
-                          onTrigger: () {
-                            context.read<SosBloc>().add(const SosTriggerPressed('manual'));
-                          },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 24.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _NavItem(icon: Icons.home_rounded, label: 'Home', isActive: true, onTap: () {}),
+                              _NavItem(icon: Icons.map_rounded, label: 'Map', onTap: () => context.push('/map')),
+                              _NavItem(icon: Icons.groups_rounded, label: 'Community', onTap: () => context.push('/community')),
+                              _NavItem(icon: Icons.folder_copy_rounded, label: 'Evidence', onTap: () => context.push('/evidence')),
+                              _NavItem(icon: Icons.settings_rounded, label: 'Settings', onTap: () => context.push('/settings')),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        if (isActive)
-                          Shimmer.fromColors(
-                            baseColor: AppColors.danger,
-                            highlightColor: Colors.white,
-                            child: Text('TRIGGERING SOS...', style: GoogleFonts.orbitron(fontSize: 12, letterSpacing: 2)),
-                          )
-                        else
-                          Text('PROTECTED BY KAWACH', style: GoogleFonts.orbitron(fontSize: 10, color: AppColors.textSecondary, letterSpacing: 2)),
-                      ],
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 24),
-                
-                // ── Quick Stats ──────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _StatCounter(label: 'SOS Events', value: _sosCount),
-                      Container(width: 1, height: 24, color: AppColors.textSecondary.withValues(alpha: 0.2)),
-                      _StatCounter(label: 'Evidence', value: _evidenceCount),
-                      Container(width: 1, height: 24, color: AppColors.textSecondary.withValues(alpha: 0.2)),
-                      _StatCounter(label: 'Guardians', value: _guardianCount),
+                      ),
                     ],
                   ),
-                ),
 
-                const SizedBox(height: 24),
+                  // ── Countdown Overlay ──
+                  BlocBuilder<SosBloc, SosState>(
+                    builder: (context, state) {
+                      if (state is SosTriggering) {
+                        return _CountdownOverlay(countdown: state.countdown);
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
 
-                // ── Live Area Safety Card ──────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: GestureDetector(
-                    onTap: () => context.push('/map'),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _riskColor().withValues(alpha: 0.2), width: 1),
+                  // Demo mode badge
+                  if (demoMode)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: SafeArea(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('DEMO', style: GoogleFonts.orbitron(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                        ),
                       ),
-                      child: _scoreLoading
-                          ? _buildScoreLoading()
-                          : _buildLiveScore(),
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ── Fake Call ────────────────────────────────────
-                _FeatureCard(
-                  icon: Icons.call_outlined,
-                  iconColor: Colors.blueAccent,
-                  title: 'Fake Call Deterrent',
-                  subtitle: 'Simulate incoming call to deter attackers',
-                  onTap: () => context.push('/fake-call/incoming', extra: 'Police Control Room'),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── Guardian AI ────────────────────────────────────
-                _FeatureCard(
-                  icon: Icons.smart_toy_rounded,
-                  iconColor: AppColors.primary,
-                  title: 'Guardian AI',
-                  subtitle: 'Chat with your 24/7 AI safety assistant',
-                  onTap: () => context.push('/guardian-ai'),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── Route Safety Check ────────────────────────────────────
-                _FeatureCard(
-                  icon: Icons.route,
-                  iconColor: AppColors.safe,
-                  title: 'Route Safety Check',
-                  subtitle: 'Scan your route for risk zones before walking',
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => const RouteSafetySheet(),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── System Diagnostics ────────────────────────────────────
-                _FeatureCard(
-                  icon: Icons.verified_user,
-                  iconColor: AppColors.safe,
-                  title: 'System Diagnostics',
-                  subtitle: 'Verify all protection systems are armed',
-                  onTap: () => context.push('/diagnostics'),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Quick actions ─────────────────────────────────────
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.0),
-                  child: QuickActionsBar(),
-                ),
-
-                const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ── Bottom Nav ────────────────────────────────────────
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    border: Border(top: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.08))),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, -2)),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 24.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _NavItem(icon: Icons.home_rounded, label: 'Home', isActive: true, onTap: () {}),
-                        _NavItem(icon: Icons.map_rounded, label: 'Map', onTap: () => context.push('/map')),
-                        _NavItem(icon: Icons.groups_rounded, label: 'Community', onTap: () => context.push('/community')),
-                        _NavItem(icon: Icons.folder_copy_rounded, label: 'Evidence', onTap: () => context.push('/evidence')),
-                        _NavItem(icon: Icons.settings_rounded, label: 'Settings', onTap: () => context.push('/settings')),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-                // Demo mode badge
-                if (demoMode)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text('DEMO', style: GoogleFonts.orbitron(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -828,6 +841,76 @@ class _StatCounter extends StatelessWidget {
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, letterSpacing: 1),
         ),
       ],
+    );
+  }
+}
+
+class _CountdownOverlay extends StatelessWidget {
+  final int countdown;
+  const _CountdownOverlay({required this.countdown});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.85),
+      child: SizedBox(
+        width: double.infinity,
+        height: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Shimmer.fromColors(
+              baseColor: Colors.white,
+              highlightColor: AppColors.danger,
+              child: Text('EMERGENCY TRIGGER', 
+                style: GoogleFonts.orbitron(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4)),
+            ),
+            const SizedBox(height: 40),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 180,
+                  height: 180,
+                  child: CircularProgressIndicator(
+                    value: countdown / 15,
+                    strokeWidth: 10,
+                    color: AppColors.danger,
+                    backgroundColor: Colors.white12,
+                  ),
+                ),
+                Text(countdown == 0 ? '!' : countdown.toString(), 
+                  style: GoogleFonts.orbitron(color: Colors.white, fontSize: 64, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 40),
+            Text(countdown == 0 ? 'ESTABLISHING EMERGENCY UPLINK...' : 'Alerting Guardians & Authorities...', 
+              style: const TextStyle(color: Colors.white70, fontSize: 16, letterSpacing: 1.2)),
+            const SizedBox(height: 10),
+            Text(countdown == 0 ? 'Please wait, help is being dispatched' : 'Dispatching in $countdown seconds', 
+              style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 80),
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.heavyImpact();
+                context.read<SosBloc>().add(const SosCancelPressed('manual_abort'));
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [
+                    BoxShadow(color: AppColors.danger.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5),
+                  ],
+                ),
+                child: Text('CANCEL ALERT', 
+                  style: GoogleFonts.orbitron(color: AppColors.danger, fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

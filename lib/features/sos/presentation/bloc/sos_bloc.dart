@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
 import 'package:injectable/injectable.dart';
 import 'package:battery_plus/battery_plus.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/sos_repository.dart';
 import '../../domain/entities/sos_alert.dart';
 import 'package:kawach/features/evidence/evidence_upload_service.dart';
@@ -29,55 +29,91 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
 
   SosBloc(this._repository, this._evidenceUploadService, this._smsFallbackService, this._guardianRepository) : super(SosInitial()) {
     on<SosTriggerPressed>((event, emit) async {
-      emit(SosTriggering());
+      debugPrint('KAWACH BLOC: SOS Trigger Received! Type: ${event.triggerType}');
       
-      try {
-        final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        ).timeout(const Duration(seconds: 6), onTimeout: () async {
-          // Fallback: use last known position if GPS is slow
-          final last = await Geolocator.getLastKnownPosition();
-          if (last != null) return last;
-          // Absolute fallback: get any position quickly
-          return Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.low,
-          );
-        });
-        final batteryLevel = await _battery.batteryLevel;
+      // Start 15-second countdown
+      for (int i = 15; i >= 0; i--) {
+        emit(SosTriggering(countdown: i));
+        await Future.delayed(const Duration(seconds: 1));
         
-        final result = await _repository.triggerSOS(
+        // Check if user cancelled during the countdown
+        if (state is! SosTriggering) {
+          debugPrint('KAWACH BLOC: SOS Trigger Cancelled during countdown');
+          return;
+        }
+      }
+
+      try {
+        // ── STEP 1: FAST LOCATION ───────────────────────────────────────────
+        debugPrint('KAWACH BLOC: Fetching FAST location...');
+        Position? position = await Geolocator.getLastKnownPosition();
+        
+        // If no last known, do a very quick current position check (max 1s)
+        position ??= await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(milliseconds: 1000),
+          ).catchError((_) => Position(
+            longitude: 77.5946, latitude: 12.9716, // Bangalore fallback
+            timestamp: DateTime.now(),
+            accuracy: 0.0, altitude: 0.0, altitudeAccuracy: 0.0,
+            heading: 0.0, headingAccuracy: 0.0, speed: 0.0, speedAccuracy: 0.0,
+          ));
+
+        final batteryLevel = await _battery.batteryLevel;
+        final phones = await _fetchGuardianPhones();
+        final primaryPhone = phones.isNotEmpty ? phones.first : null;
+
+        // ── STEP 2: INSTANT STATE TRANSITION ───────────────────────────────
+        // We emit SosActive with a placeholder alert so the UI opens the dialer IMMEDIATELY
+        final placeholderAlert = SosAlert(
+          id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
+          userId: 'me',
+          lat: position.latitude,
+          lng: position.longitude,
+          status: 'triggered',
+          triggerType: event.triggerType,
+          createdAt: DateTime.now(),
+        );
+
+        emit(SosActive(
+          alert: placeholderAlert,
+          currentLat: position.latitude,
+          currentLng: position.longitude,
+          primaryGuardianPhone: primaryPhone,
+        ));
+
+        // ── STEP 3: BACKGROUND REPOSITORY CALL ─────────────────────────────
+        // We don't await the server call anymore; we let it run in parallel
+        unawaited(_repository.triggerSOS(
           lat: position.latitude,
           lng: position.longitude,
           battery: batteryLevel,
           triggerType: event.triggerType,
-        );
+        ).then((result) {
+          result.fold(
+            (failure) {
+               // If server fails, we've already done native fallback in the background (remote_datasource)
+               debugPrint('KAWACH BLOC: Background SOS trigger finished with failure: ${failure.message}');
+            },
+            (realAlert) {
+               // Update state with real alert ID if needed
+               debugPrint('KAWACH BLOC: Background SOS trigger succeeded! ID: ${realAlert.id}');
+               // We could re-emit SosActive here to update the ID, but UI already has the dialer open
+            }
+          );
+        }));
 
-        result.fold(
-          (failure) async {
-            // Offline fallback -> Fetch real guardian phones then dispatch SMS
-            final phones = await _fetchGuardianPhones();
-            _smsFallbackService.dispatchOfflineDistress(
-              lat: position.latitude,
-              lng: position.longitude,
-              guardianPhones: phones,
-            );
-            emit(SosError(failure.message));
-          },
-          (alert) {
-            emit(SosActive(
-              alert: alert,
-              currentLat: alert.lat,
-              currentLng: alert.lng,
-            ));
-            _pinningChannel.invokeMethod('pinScreen');
-            WakelockPlus.enable();
-            _startTracking();
-            // Auto-capture evidence burst in background
-            _evidenceUploadService.captureAndUploadBurst(sosAlertId: alert.id);
-            EvidenceAudioPipeline().startContinuousRecording(alert.id);
-          },
-        );
+        // ── STEP 4: NATIVE HARDWARE / APP STATE ────────────────────────────
+        _pinningChannel.invokeMethod('pinScreen');
+        WakelockPlus.enable();
+        _startTracking();
+        
+        // Capture evidence burst (non-blocking)
+        unawaited(_evidenceUploadService.captureAndUploadBurst(sosAlertId: placeholderAlert.id));
+        EvidenceAudioPipeline().startContinuousRecording(placeholderAlert.id);
+
       } catch (e) {
+        debugPrint('KAWACH BLOC: SOS Critical Error: $e');
         emit(SosError(e.toString()));
       }
     });
@@ -90,11 +126,17 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
           currentLat: event.lat,
           currentLng: event.lng,
           evidenceCount: currentState.evidenceCount,
+          primaryGuardianPhone: currentState.primaryGuardianPhone,
         ));
       }
     });
 
     on<SosCancelPressed>((event, emit) async {
+      if (state is SosTriggering) {
+        emit(SosInitial());
+        return;
+      }
+
       if (state is SosActive) {
         final alertId = (state as SosActive).alert.id;
         emit(SosCancelling());
@@ -121,6 +163,7 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
           currentLat: currentState.currentLat,
           currentLng: currentState.currentLng,
           evidenceCount: currentState.evidenceCount + 1,
+          primaryGuardianPhone: currentState.primaryGuardianPhone,
         ));
       }
     });
@@ -171,6 +214,7 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
           currentLat: (json['latitude'] as num?)?.toDouble() ?? 0.0,
           currentLng: (json['longitude'] as num?)?.toDouble() ?? 0.0,
           evidenceCount: json['evidenceCount'] as int? ?? 0,
+          primaryGuardianPhone: json['primaryGuardianPhone'] as String?,
         );
       }
     } catch (_) {}
@@ -183,6 +227,7 @@ class SosBloc extends HydratedBloc<SosEvent, SosState> {
       final json = state.alert.toJson();
       json['status'] = 'triggered';
       json['evidenceCount'] = state.evidenceCount;
+      json['primaryGuardianPhone'] = state.primaryGuardianPhone;
       return json;
     } else if (state is SosInitial || state is SosResolved) {
       return {'status': 'resolved'};

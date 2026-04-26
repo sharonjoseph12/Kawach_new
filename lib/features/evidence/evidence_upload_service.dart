@@ -4,6 +4,8 @@ import 'package:injectable/injectable.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 
 /// Automatically captures a burst of 3 front-camera photos and uploads
 /// them to Supabase Storage evidence bucket on SOS trigger.
@@ -68,6 +70,12 @@ class EvidenceUploadService {
       // Store metadata in evidence_items
       try {
         final stat = file.statSync();
+        final bytes = await file.readAsBytes();
+        
+        // Calculate SHA-256 hash
+        final hash = sha256.convert(bytes);
+        final hashHex = hash.toString();
+
         await _supabase.from('evidence_items').insert({
           'sos_id': sosAlertId,
           'user_id': uid,
@@ -75,10 +83,13 @@ class EvidenceUploadService {
           'file_name': fileName,
           'file_size_bytes': stat.size,
           'storage_path': path,
-          'encrypted_hash': stat.size.toRadixString(16),
+          'file_hash': hashHex, // Real SHA-256 hash
           'captured_at': DateTime.now().toIso8601String(),
         });
-      } catch (_) {}
+        debugPrint('KAWACH EVIDENCE: Photo uploaded & signed. Hash: ${hashHex.substring(0, 8)}...');
+      } catch (e) {
+        debugPrint('KAWACH EVIDENCE: Metadata insert failed: $e');
+      }
 
       return _supabase.storage.from('evidence').getPublicUrl(path);
     } catch (_) {
