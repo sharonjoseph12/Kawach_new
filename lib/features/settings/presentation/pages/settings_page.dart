@@ -25,6 +25,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _demoUnlocked = false;
   int _aboutTapCount = 0;
   bool _signingOut = false;
+  int _shakeSensitivity = 3;
   String _phone = '';
   String _appVersion = '1.0.0';
 
@@ -49,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _behavioralAnomaly = prefs.getBool('behavioral_anomaly') ?? true;
       _meshRelay = prefs.getBool('mesh_relay') ?? true;
       _camouflageMode = prefs.getBool('camouflage_mode') ?? false;
+      _shakeSensitivity = prefs.getInt('shake_sensitivity') ?? 3;
       _demoMode = getIt<DemoModeService>().isActive;
       _demoUnlocked = prefs.getBool('demo_unlocked') ?? false;
       _phone = user?.phone ?? user?.email ?? 'Not signed in';
@@ -63,6 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await prefs.setBool('behavioral_anomaly', _behavioralAnomaly);
     await prefs.setBool('mesh_relay', _meshRelay);
     await prefs.setBool('camouflage_mode', _camouflageMode);
+    await prefs.setInt('shake_sensitivity', _shakeSensitivity);
   }
 
   Future<void> _signOut() async {
@@ -158,6 +161,47 @@ class _SettingsPageState extends State<SettingsPage> {
               value: _shakeDetection,
               onChanged: (v) { setState(() => _shakeDetection = v); _save(); },
             ),
+            Opacity(
+              opacity: _shakeDetection ? 1.0 : 0.4,
+              child: IgnorePointer(
+                ignoring: !_shakeDetection,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(68, 0, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Sensitivity', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text(['Low', 'Medium-Low', 'Normal', 'High', 'Extreme'][_shakeSensitivity - 1], 
+                            style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 2,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                        ),
+                        child: Slider(
+                          value: _shakeSensitivity.toDouble(),
+                          min: 1,
+                          max: 5,
+                          divisions: 4,
+                          activeColor: AppColors.danger,
+                          inactiveColor: AppColors.danger.withValues(alpha: 0.2),
+                          onChanged: (v) {
+                            setState(() => _shakeSensitivity = v.toInt());
+                            _save();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             _SwitchTile(
               icon: Icons.psychology_outlined,
               title: 'Behavioral Anomaly',
@@ -243,6 +287,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   setState(() => _demoMode = v);
                 },
               ),
+            _TileButton(
+              icon: Icons.admin_panel_settings_outlined,
+              title: 'Police Command Center',
+              subtitle: 'Access emergency coordination dashboard',
+              iconColor: AppColors.danger,
+              onTap: () => context.push('/police-dashboard'),
+            ),
           ]),
 
           // ── Danger zone ───────────────────────────────────────────────

@@ -16,6 +16,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:math';
 import 'package:flutter_activity_recognition/flutter_activity_recognition.dart';
 import 'package:kawach/features/evidence/data/evidence_audio_pipeline.dart';
+import 'package:kawach/features/ai/audio/wake_word_service.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:telephony/telephony.dart';
 
@@ -100,6 +101,52 @@ void onStart(ServiceInstance service) async {
     }
 
     service.on('stopService').listen((_) => service.stopSelf());
+
+    // ── Wake-Word (Help Me) Detection ──────────────────────────────────────
+    final wakeWordService = WakeWordService();
+    try {
+      if (await wakeWordService.initialize()) {
+        await wakeWordService.startListening(
+          onWakeWordDetected: () async {
+            debugPrint('KAWACH BACKGROUND: Wake-word detected in background!');
+            
+            final uid = Supabase.instance.client.auth.currentUser?.id;
+            if (uid != null) {
+              Position? pos;
+              try { pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high).timeout(const Duration(seconds: 5)); } catch (_) {}
+              
+              await _insertBackgroundSos(
+                uid: uid,
+                lat: pos?.latitude ?? 0.0,
+                lng: pos?.longitude ?? 0.0,
+                batteryLevel: await battery.batteryLevel,
+                triggerType: 'voice_sos',
+                origin: 'background_isolate_voice',
+              );
+
+              await flutterLocalNotificationsPlugin.show(
+                890,
+                '🚨 KAWACH: VOICE SOS TRIGGERED!',
+                'Detected distress phrase. Help is on the way.',
+                const NotificationDetails(
+                  android: AndroidNotificationDetails(
+                    'kawach_alerts', 'High Priority Alerts',
+                    importance: Importance.max, 
+                    priority: Priority.high,
+                    fullScreenIntent: true,
+                    category: AndroidNotificationCategory.alarm,
+                    color: Colors.red,
+                    icon: '@mipmap/ic_launcher',
+                  ),
+                ),
+              );
+            }
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('KAWACH BACKGROUND: WakeWord initialization failed: $e');
+    }
 
     // ── Offline SOS Queue flush ───────────────────────────────────────────────
     Timer.periodic(const Duration(seconds: 30), (_) async {
@@ -219,8 +266,20 @@ void onStart(ServiceInstance service) async {
 
     // ── Behavioral Anomaly Detection (Sensors) ─────────────────────────────
     userAccelerometerEventStream().listen((event) async {
+      final prefs = await SharedPreferences.getInstance();
+      final isEnabled = prefs.getBool('shake_detection') ?? true;
+      if (!isEnabled) return;
+
+      final sensitivityLevel = prefs.getInt('shake_sensitivity') ?? 3;
+      // Map 1-5 to threshold (Same as UI logic)
+      final thresholds = [35.0, 30.0, 25.0, 18.0, 11.0];
+      final threshold = thresholds[sensitivityLevel - 1];
+
       final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      if (magnitude > 35.0) {
+      
+      if (magnitude > threshold) {
+        debugPrint('KAWACH BACKGROUND: Shake threshold exceeded ($magnitude > $threshold)');
+        
         if (service is AndroidServiceInstance) {
           service.invoke('anomalyDetected', {'magnitude': magnitude, 'timestamp': DateTime.now().toIso8601String()});
         }
@@ -237,19 +296,23 @@ void onStart(ServiceInstance service) async {
               lat: pos?.latitude ?? 0.0,
               lng: pos?.longitude ?? 0.0,
               batteryLevel: await battery.batteryLevel,
-              triggerType: 'hard_fall',
+              triggerType: 'shake_sos',
               origin: 'background_isolate',
             );
             
             await flutterLocalNotificationsPlugin.show(
               889,
-              'KAWACH: Hard Fall Detected!',
-              'SOS triggered automatically.',
+              '🚨 KAWACH: EMERGENCY SOS!',
+              'You shook your phone. Emergency responders alerted.',
               const NotificationDetails(
                 android: AndroidNotificationDetails(
                   'kawach_alerts', 'High Priority Alerts',
-                  importance: Importance.max, priority: Priority.high,
-                  color: Colors.red, icon: '@mipmap/ic_launcher',
+                  importance: Importance.max, 
+                  priority: Priority.high,
+                  fullScreenIntent: true, // This is key for lock screen
+                  category: AndroidNotificationCategory.alarm,
+                  color: Colors.red, 
+                  icon: '@mipmap/ic_launcher',
                 ),
               ),
             );

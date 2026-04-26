@@ -53,17 +53,21 @@ class SosRemoteDataSourceImpl implements SosRemoteDataSource {
       });
     } catch (_) {}
 
-    // Trigger edge function to notify guardians via SMS
-    try {
-      await _supabase.functions.invoke('notify-guardians', body: {
-        'sos_id': response['id'],
-      });
-    } catch (e) {
-      // Proceed even if notification fails, the alert is still active
+    // Trigger edge function to notify guardians via SMS (Non-blocking)
+    _supabase.functions.invoke('notify-guardians', body: {
+      'sos_id': response['id'],
+    }).catchError((e) {
       debugPrint('Failed to notify guardians via edge function: $e');
-    }
+      return null;
+    });
 
-    // HACKATHON FIX: Native local SMS fallback to guarantee messages are sent
+    // HACKATHON FIX: Native local SMS fallback (Non-blocking)
+    _sendNativeSms(lat, lng, battery, uid);
+
+    return SosAlert.fromJson(response);
+  }
+
+  Future<void> _sendNativeSms(double lat, double lng, int battery, String uid) async {
     try {
       final guardianData = await _supabase.from('guardians').select('contact_phone').eq('user_id', uid);
       final telephony = Telephony.instance;
@@ -85,14 +89,10 @@ class SosRemoteDataSourceImpl implements SosRemoteDataSource {
             debugPrint('KAWACH: Sent native SMS to $phone');
           }
         }
-      } else {
-        debugPrint('KAWACH: SMS permission denied, skipping native SMS');
       }
     } catch (e) {
       debugPrint('KAWACH: Native SMS send failed - $e');
     }
-
-    return SosAlert.fromJson(response);
   }
 
   @override

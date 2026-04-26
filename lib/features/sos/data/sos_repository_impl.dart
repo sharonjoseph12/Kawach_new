@@ -43,6 +43,7 @@ class SosRepositoryImpl implements SosRepository {
     required int battery,
     required String triggerType,
   }) async {
+    debugPrint('KAWACH REPO: triggerSOS called!');
     // 1. Persist Locally First (Offline First)
     final localAlert = SosAlertLocal()
       ..lat = lat
@@ -65,7 +66,7 @@ class SosRepositoryImpl implements SosRepository {
         lng: lng,
         battery: battery,
         triggerType: triggerType,
-      );
+      ).timeout(const Duration(seconds: 4));
       
       // 3. Update local as synced
       localAlert.isSynced = true;
@@ -73,21 +74,31 @@ class SosRepositoryImpl implements SosRepository {
       localAlert.remoteId = alert.id;
       await _localDatabase.saveSosAlert(localAlert);
       
+      // Trigger Mesh redundantly even if online, to help others
+      final prefs = await SharedPreferences.getInstance();
+      List<String> phones = [];
+      final cached = prefs.getString('cached_guardians_global');
+      if (cached != null && cached.isNotEmpty) {
+        final List decoded = jsonDecode(cached);
+        phones = decoded.map((g) => (g['contact_phone'] ?? '') as String).where((p) => p.isNotEmpty).toList();
+      }
+      _triggerMesh(localAlert.remoteId, lat, lng, battery, phones.join('|'));
+
       return Right(alert);
     } catch (e) {
       debugPrint('KAWACH: Remote SOS failed, continuing offline — $e');
 
-      // Trigger Bluetooth Mesh Beacon with real user ID
-      try {
-        final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'anonymous';
-        await _nearbyMeshService.startAdvertising(MeshMessage(
-          msgId: localAlert.remoteId,
-          originUserId: currentUserId,
-          type: 'SOS',
-          timestamp: DateTime.now(),
-          payload: 'lat:$lat,lng:$lng,bat:$battery',
-        ));
-      } catch (_) {}
+      // Trigger Bluetooth Mesh Beacon for Offline-First approach
+      final prefs = await SharedPreferences.getInstance();
+      List<String> phones = [];
+      final cached = prefs.getString('cached_guardians_global');
+      if (cached != null && cached.isNotEmpty) {
+        final List decoded = jsonDecode(cached);
+        phones = decoded.map((g) => (g['contact_phone'] ?? '') as String).where((p) => p.isNotEmpty).toList();
+      }
+      _triggerMesh(localAlert.remoteId, lat, lng, battery, phones.join('|'));
+
+      // Enqueue for retry when connectivity returns
 
       // Enqueue for retry when connectivity returns
       try {
@@ -132,54 +143,37 @@ class SosRepositoryImpl implements SosRepository {
   /// Direct SMS — reads from local cache only, zero network dependency
   Future<void> _sendSmsToGuardians(double lat, double lng, int battery) async {
     try {
-      debugPrint('KAWACH SMS: Starting direct SMS send...');
-      
-      // Read guardian phones DIRECTLY from SharedPreferences cache
-      // This avoids any Supabase call that could hang when offline
-      final prefs = await SharedPreferences.getInstance();
-      List<String> phones = [];
-      
-      // Try global cache first (most reliable)
-      final cached = prefs.getString('cached_guardians_global');
-      if (cached != null && cached.isNotEmpty) {
-        final List decoded = jsonDecode(cached);
-        phones = decoded
-            .map((g) => (g['contact_phone'] ?? '') as String)
-            .where((p) => p.isNotEmpty)
-            .toList();
-      }
-      
-      debugPrint('KAWACH SMS: Found ${phones.length} cached guardian phones');
+      final guardians = await _guardianRepository.fetchGuardians();
+      final phones = guardians.map((g) => g.contactPhone).where((p) => p.isNotEmpty).toList();
       
       if (phones.isEmpty) {
-        debugPrint('KAWACH SMS: No cached guardians — cannot send');
+        debugPrint('KAWACH SMS: No guardians found, skipping fallback.');
         return;
       }
 
-      // Request permission
-      final permStatus = await Permission.sms.request();
-      debugPrint('KAWACH SMS: Permission status = $permStatus');
-      if (!permStatus.isGranted) {
-        debugPrint('KAWACH SMS: Permission denied');
-        return;
-      }
-
-      final telephony = Telephony.instance;
-      final message = "KAWACH SOS! I need help! "
-          "Location: https://maps.google.com/?q=$lat,$lng "
-          "Battery: $battery%";
-
-      for (final phone in phones) {
-        try {
-          debugPrint('KAWACH SMS: Sending to $phone...');
-          await telephony.sendSms(to: phone, message: message);
-          debugPrint('KAWACH SMS: ✅ Sent to $phone');
-        } catch (e) {
-          debugPrint('KAWACH SMS: ❌ Failed for $phone — $e');
-        }
-      }
+      await _smsFallbackService.dispatchOfflineDistress(
+        lat: lat,
+        lng: lng,
+        guardianPhones: phones,
+      );
     } catch (e) {
-      debugPrint('KAWACH SMS: Fatal error — $e');
+      debugPrint('KAWACH SMS: Global fallback failed — $e');
+    }
+  }
+
+  Future<void> _triggerMesh(String alertId, double lat, double lng, int battery, String phones) async {
+    try {
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'anonymous';
+      bool advertising = await _nearbyMeshService.startAdvertising(MeshMessage(
+        msgId: alertId,
+        originUserId: currentUserId,
+        type: 'SOS',
+        timestamp: DateTime.now(),
+        payload: 'lat:$lat,lng:$lng,bat:$battery,phones:$phones',
+      ));
+      debugPrint('KAWACH MESH TRIGGER: Advertising started = $advertising');
+    } catch (e) {
+      debugPrint('KAWACH MESH TRIGGER: Failed — $e');
     }
   }
 }

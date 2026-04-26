@@ -19,6 +19,7 @@ import 'package:kawach/features/settings/presentation/pages/settings_page.dart';
 import 'package:kawach/features/ai/guardian_ai/guardian_ai_page.dart';
 import 'package:kawach/features/community/presentation/pages/community_page.dart';
 import 'package:kawach/features/splash/presentation/pages/splash_page.dart';
+import 'package:kawach/features/police_dashboard/presentation/pages/police_dashboard_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kawach/app/di/injection.dart';
 import 'package:kawach/features/sos/presentation/bloc/sos_bloc.dart';
@@ -241,6 +242,10 @@ class AppRouter {
       GoRoute(
         path: '/onboarding',
         pageBuilder: (context, state) => _fadeSlide(const OnboardingPage(), state),
+      ),
+      GoRoute(
+        path: '/police-dashboard',
+        pageBuilder: (context, state) => _fadeSlide(const PoliceDashboardPage(), state),
       ),
     ],
   );

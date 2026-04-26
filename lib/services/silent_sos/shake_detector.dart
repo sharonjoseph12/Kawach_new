@@ -5,7 +5,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ShakeDetector {
-  static const double _threshold = 22.0; // m/s²
+  double _threshold = 22.0; // m/s² (Default)
   static const int _sustainedMs = 400;
   static const int _debounceMs = 5000;
 
@@ -22,6 +22,17 @@ class ShakeDetector {
   Future<void> _loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
     _enabled = prefs.getBool('shake_detection') ?? true;
+    
+    final sensitivity = prefs.getInt('shake_sensitivity') ?? 3;
+    // Map 1-5 to 35.0-10.0 threshold
+    switch (sensitivity) {
+      case 1: _threshold = 35.0; break; // Very Low
+      case 2: _threshold = 28.0; break; // Low
+      case 3: _threshold = 22.0; break; // Medium (Default)
+      case 4: _threshold = 16.0; break; // High
+      case 5: _threshold = 11.0; break; // Very High
+      default: _threshold = 22.0;
+    }
   }
 
   Future<void> start() async {

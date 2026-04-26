@@ -69,7 +69,8 @@ void main() async {
 
   // Initialize Supabase (skip if placeholder URL)
   try {
-    if (config.supabaseUrl.isNotEmpty && !config.supabaseUrl.contains('YOUR_PROJECT')) {
+    if (config.supabaseUrl.isNotEmpty &&
+        !config.supabaseUrl.contains('YOUR_PROJECT')) {
       await Supabase.initialize(
         url: config.supabaseUrl,
         anonKey: config.supabaseAnonKey,
@@ -140,16 +141,39 @@ void main() async {
     debugPrint('KAWACH: Hardware Volume Button Interceptor failed — $e');
   }
 
-  // Request Permissions on Startup
-  await _requestAllPermissions();
-  debugPrint('KAWACH: Permissions requested');
+  // Request Permissions on Startup FIRST (needed for Nearby Connections)
+  try {
+    await _requestAllPermissions();
+    debugPrint('KAWACH: Permissions requested');
+  } catch (e) {
+    debugPrint('KAWACH: Permissions request failed (non-fatal) — $e');
+  }
 
-  // Initialize Offline Mesh Relay
+  // Check location services (required for Nearby Connections)
+  try {
+    final locEnabled = await Permission.location.serviceStatus.isEnabled;
+    debugPrint('KAWACH: Location services enabled = $locEnabled');
+    if (!locEnabled) {
+      debugPrint('KAWACH: ⚠️ Location services OFF — Nearby Connections will fail');
+    }
+  } catch (e) {
+    debugPrint('KAWACH: Location service check failed — $e');
+  }
+
+  // Initialize Offline Mesh Relay (AFTER permissions)
   try {
     final bool isMeshRelayEnabled = prefs.getBool('mesh_relay') ?? true;
+    debugPrint('KAWACH: mesh_relay pref = $isMeshRelayEnabled');
     if (isMeshRelayEnabled) {
-      await getIt<NearbyMeshService>().startScanning();
-      debugPrint('KAWACH: NearbyMeshService Relay Active');
+      debugPrint('KAWACH: Starting NearbyMeshService.startScanning()...');
+      final meshResult = await getIt<NearbyMeshService>().startScanning()
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        debugPrint('KAWACH: NearbyMeshService.startScanning() TIMED OUT after 10s');
+        return false;
+      });
+      debugPrint('KAWACH: NearbyMeshService Relay Active = $meshResult');
+    } else {
+      debugPrint('KAWACH: Mesh relay disabled by user pref');
     }
   } catch (e) {
     debugPrint('KAWACH: NearbyMeshService init failed — $e');
@@ -159,7 +183,11 @@ void main() async {
   FlutterError.onError = (details) {
     debugPrint('KAWACH ERROR: ${details.exception}');
     if (getIt.isRegistered<LoggerService>()) {
-      getIt<LoggerService>().error('Flutter Error', details.exception, details.stack);
+      getIt<LoggerService>().error(
+        'Flutter Error',
+        details.exception,
+        details.stack,
+      );
     }
   };
 
@@ -175,14 +203,11 @@ void main() async {
 
   // Initialize Sentry (non-blocking — skip if no DSN)
   if (config.sentryDsn.isNotEmpty) {
-    await SentryFlutter.init(
-      (options) {
-        options.dsn = config.sentryDsn;
-        options.tracesSampleRate = kReleaseMode ? 0.2 : 1.0;
-        options.enableAutoPerformanceTracing = true;
-      },
-      appRunner: () => _launchApp(),
-    );
+    await SentryFlutter.init((options) {
+      options.dsn = config.sentryDsn;
+      options.tracesSampleRate = kReleaseMode ? 0.2 : 1.0;
+      options.enableAutoPerformanceTracing = true;
+    }, appRunner: () => _launchApp());
   } else {
     debugPrint('KAWACH: Sentry skipped — no DSN');
     _launchApp();
@@ -229,6 +254,8 @@ Future<void> _requestAllPermissions() async {
     Permission.bluetooth,
     Permission.bluetoothScan,
     Permission.bluetoothConnect,
+    Permission.bluetoothAdvertise,
+    Permission.nearbyWifiDevices,
     Permission.notification,
     Permission.sms,
   ].request();

@@ -20,19 +20,39 @@ class _MapPageState extends State<MapPage> {
   
   Set<Circle> _circles = {};
   Set<Marker> _markers = {};
+  RealtimeChannel? _realtimeChannel;
   
   final bool _showIncidents = true;
   final bool _showHeatmap = true;
   MapType _currentMapType = MapType.normal;
-
-  static List<Map<String, dynamic>>? _cachedIncidents;
-  static DateTime? _lastFetch;
 
   @override
   void initState() {
     super.initState();
     _fetchLocation();
     _loadMapData();
+    _setupRealtime();
+  }
+
+  @override
+  void dispose() {
+    _realtimeChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  void _setupRealtime() {
+    _realtimeChannel = _client
+        .channel('public:community_reports')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'community_reports',
+          callback: (payload) {
+            debugPrint('KAWACH MAP: Realtime update received!');
+            _loadMapData(forceRefresh: true);
+          },
+        );
+    _realtimeChannel!.subscribe();
   }
 
   Future<void> _fetchLocation() async {
@@ -61,11 +81,6 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _loadMapData({bool forceRefresh = false}) async {
-    final cacheValid = _lastFetch != null && DateTime.now().difference(_lastFetch!).inMinutes < 5;
-    if (!forceRefresh && cacheValid && _cachedIncidents != null) {
-      _processData(_cachedIncidents!);
-      return;
-    }
     try {
       final res = await _client
           .from('community_reports')
@@ -73,10 +88,10 @@ class _MapPageState extends State<MapPage> {
           .limit(200);
 
       final incidents = List<Map<String, dynamic>>.from(res);
-      _cachedIncidents = incidents;
-      _lastFetch = DateTime.now();
       _processData(incidents);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('KAWACH MAP: Error loading data: $e');
+    }
   }
 
   void _processData(List<Map<String, dynamic>> incidents) {
@@ -90,23 +105,30 @@ class _MapPageState extends State<MapPage> {
       final lat = double.tryParse(r['latitude'].toString()) ?? 0;
       final lng = double.tryParse(r['longitude'].toString()) ?? 0;
       final severity = r['severity_level'] as int? ?? 3;
-      final type = r['incident_type'] as String? ?? 'other';
+      final type = (r['incident_type'] as String? ?? 'other').toLowerCase();
       
       final pos = LatLng(lat, lng);
 
       if (_showIncidents) {
+        // Map incident type to hue
+        double hue;
+        switch (type) {
+          case 'theft': hue = BitmapDescriptor.hueAzure; break;
+          case 'harassment': hue = BitmapDescriptor.hueYellow; break;
+          case 'assault': hue = BitmapDescriptor.hueRed; break;
+          default: hue = BitmapDescriptor.hueViolet;
+        }
+
         markers.add(
           Marker(
-            markerId: MarkerId('incident_$i'),
+            markerId: MarkerId('incident_${lat}_${lng}_$i'),
             position: pos,
             infoWindow: InfoWindow(
               title: type.toUpperCase(),
               snippet: 'Severity: $severity/5',
               onTap: () => _showIncidentDetail(r),
             ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              severity >= 4 ? BitmapDescriptor.hueRed : BitmapDescriptor.hueOrange,
-            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(hue),
           ),
         );
       }
@@ -114,17 +136,18 @@ class _MapPageState extends State<MapPage> {
       if (_showHeatmap) {
         Color color;
         double opacity;
-        if (severity <= 2) { color = AppColors.safe; opacity = 0.2; }
-        else if (severity <= 3) { color = AppColors.warning; opacity = 0.3; }
-        else { color = AppColors.danger; opacity = 0.4; }
+        if (severity <= 2) { color = AppColors.safe; opacity = 0.25; }
+        else if (severity <= 3) { color = AppColors.warning; opacity = 0.35; }
+        else { color = AppColors.danger; opacity = 0.45; }
 
         circles.add(
           Circle(
-            circleId: CircleId('heat_$i'),
+            circleId: CircleId('heat_${lat}_${lng}_$i'),
             center: pos,
-            radius: 200,
+            radius: 250, // Increased radius for better visibility
             fillColor: color.withValues(alpha: opacity),
             strokeWidth: 0,
+            zIndex: 1,
           ),
         );
       }

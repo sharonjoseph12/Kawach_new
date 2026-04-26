@@ -80,8 +80,11 @@ class WakeWordService {
             _onWakeWordDetected?.call();
           }
         },
-        listenFor: const Duration(minutes: 5),
-        pauseFor: const Duration(seconds: 5),
+        // Maximize listen durations to prevent the Android engine from timing out.
+        // This stops the engine from restarting, which completely eliminates
+        // the repetitive Android "privacy beep" sound while keeping the mic open.
+        listenFor: const Duration(days: 1),
+        pauseFor: const Duration(days: 1),
         listenOptions: SpeechListenOptions(
           partialResults: true,
           cancelOnError: false,

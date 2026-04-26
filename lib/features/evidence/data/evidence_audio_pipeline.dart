@@ -5,6 +5,7 @@ import 'package:record/record.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cryptography/cryptography.dart';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart' as crypto;
 
 class EvidenceAudioPipeline {
   static final EvidenceAudioPipeline _instance = EvidenceAudioPipeline._internal();
@@ -106,18 +107,19 @@ class EvidenceAudioPipeline {
           .from('evidence')
           .uploadBinary(storagePath, uint8Bytes, fileOptions: const FileOptions(upsert: false, contentType: 'audio/m4a'));
 
-      final stat = await encryptedFile.stat();
-
       // Log into Vault DB
+      final hash = crypto.sha256.convert(uint8Bytes);
+      final hashHex = hash.toString();
+
       await Supabase.instance.client.from('evidence_items').insert({
         'user_id': _userId,
         'sos_id': _currentSosId,
         'type': 'audio',
         'file_name': fileName,
-        'file_size_bytes': stat.size,
+        'file_size_bytes': uint8Bytes.length,
         'storage_path': storagePath,
-        'encrypted_hash': storagePath.hashCode.toRadixString(16), // Simplified hash surrogate
-        'captured_at': stat.modified.toIso8601String(),
+        'file_hash': hashHex, // Real SHA-256 hash
+        'captured_at': DateTime.now().toIso8601String(),
       });
 
       // Optionally delete local original, or keep it for the Local Vault tab
